@@ -11,7 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  cupertino_icons: ^1.0.8
+  # ⭐ SYSTEM + FILE PICKER
+  file_picker: ^8.0.0
 
   # ⭐ FIREBASE DEPENDENCIES
   firebase_core: ^4.2.1
@@ -19,13 +20,14 @@ dependencies:
   cloud_firestore: ^6.1.0
   firebase_storage: ^13.0.4
 
-  # ⭐ IMAGE PICKER
-  image_picker: ^1.0.7
-
-  # ⭐ MATERIAL DESIGN & WIDGETS
+  # UI LIBRARIES
+  cupertino_icons: ^1.0.8
   flutter_svg: ^2.0.9
 
-  # ⭐ DATE FORMAT PACKAGE (REQUIRED FOR DateFormat)
+  # IMAGE PICKER (MOBILE)
+  image_picker: ^1.0.7
+
+  # DATE FORMAT PACKAGE
   intl: ^0.19.0
 
 dev_dependencies:
@@ -39,4 +41,3 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-    

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+
 import 'package:petminder_flutter/widgets/bottom_nav.dart';
+import 'package:petminder_flutter/screens/filter_screen.dart'; // For AppFilters
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -12,71 +14,92 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  DateTime _focusedDay = DateTime.now();
-  DateTime _selectedDay = DateTime.now();
+  DateTime focusedMonth = DateTime.now();
+  DateTime selectedDay = DateTime.now();
 
-  Map<String, List<Map<String, dynamic>>> taskMap = {};
+  Map<String, List<Map<String, dynamic>>> tasksByDay = {};
 
   @override
   void initState() {
     super.initState();
-    _loadMonthTasks();
+    loadMonthTasks();
   }
 
-  // ---------------- LOAD MONTH TASKS ----------------
-  Future<void> _loadMonthTasks() async {
+  // LOAD ALL TASKS FOR THE MONTH
+  Future<void> loadMonthTasks() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    DateTime first = DateTime(_focusedDay.year, _focusedDay.month, 1);
-    DateTime last = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
+    DateTime firstDay = DateTime(focusedMonth.year, focusedMonth.month, 1);
+    DateTime lastDay = DateTime(focusedMonth.year, focusedMonth.month + 1, 0);
 
-    final snap = await FirebaseFirestore.instance
+    QuerySnapshot snap = await FirebaseFirestore.instance
         .collection("users")
         .doc(user.uid)
         .collection("tasks")
-        .where("date", isGreaterThanOrEqualTo: first)
-        .where("date", isLessThanOrEqualTo: last)
+        .where("date", isGreaterThanOrEqualTo: firstDay)
+        .where("date", isLessThanOrEqualTo: lastDay)
         .get();
 
-    taskMap.clear();
-    for (var doc in snap.docs) {
-      final data = doc.data();
-      final DateTime date = (data["date"] as Timestamp).toDate();
-      final key = DateFormat("yyyy-MM-dd").format(date);
+    Map<String, List<Map<String, dynamic>>> map = {};
 
-      taskMap.putIfAbsent(key, () => []);
-      taskMap[key]!.add(data);
+    for (var doc in snap.docs) {
+      final t = doc.data() as Map<String, dynamic>;
+      t["id"] = doc.id; // for editing
+
+      // FILTER BY PET
+      if (AppFilters.petIds.isNotEmpty &&
+          !AppFilters.petIds.contains(t["petId"])) {
+        continue;
+      }
+
+      // FILTER BY IMPORTANCE
+      if (AppFilters.importance.isNotEmpty &&
+          !AppFilters.importance.contains(t["importance"])) {
+        continue;
+      }
+
+      DateTime date = (t["date"] as Timestamp).toDate();
+      String key = DateFormat("yyyy-MM-dd").format(date);
+
+      map.putIfAbsent(key, () => []);
+      map[key]!.add(t);
     }
 
-    setState(() {});
+    setState(() => tasksByDay = map);
   }
 
-  // ---------------- BUILD UI ----------------
-
+  // --- UI STARTS HERE ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      bottomNavigationBar: const BottomNav(activeIndex: 1),
+
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.black,
-        child: const Icon(Icons.add, size: 32, color: Colors.white),
-        onPressed: () => Navigator.pushNamed(context, "/createTask"),
+        onPressed: () => Navigator.pushNamed(context, "/createTask")
+            .then((_) => loadMonthTasks()),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
-     bottomNavigationBar: _bottomNav(context),
 
-      body: Column(
+      body: Stack(
         children: [
-          _header(),
-          _monthNavigation(),
-          _calendarGrid(),
-          _taskListForSelectedDay(),
+          Column(
+            children: [
+              _header(),
+              _monthSelector(),
+              _calendarGrid(),
+            ],
+          ),
+
+          _taskSlideUpPanel(),
         ],
       ),
     );
   }
 
-  // ---------------- HEADER ----------------
+  // HEADER
   Widget _header() {
     return Container(
       height: 100,
@@ -86,109 +109,116 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: const Text(
         "CALENDAR",
         style: TextStyle(
-          color: Colors.white,
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-        ),
+            color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
       ),
     );
   }
 
-  // ---------------- MONTH SELECTOR ----------------
-  Widget _monthNavigation() {
+  // MONTH SELECTOR
+  Widget _monthSelector() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
-            child: const Icon(Icons.chevron_left, size: 32),
-            onTap: () {
-              setState(() {
-                _focusedDay =
-                    DateTime(_focusedDay.year, _focusedDay.month - 1, 1);
-              });
-              _loadMonthTasks();
-            },
-          ),
+              child: const Icon(Icons.chevron_left, size: 32),
+              onTap: () {
+                setState(() {
+                  focusedMonth =
+                      DateTime(focusedMonth.year, focusedMonth.month - 1);
+                });
+                loadMonthTasks();
+              }),
           Text(
-            DateFormat("MMMM yyyy").format(_focusedDay),
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF333333),
-            ),
+            DateFormat("MMMM yyyy").format(focusedMonth),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           GestureDetector(
-            child: const Icon(Icons.chevron_right, size: 32),
-            onTap: () {
-              setState(() {
-                _focusedDay =
-                    DateTime(_focusedDay.year, _focusedDay.month + 1, 1);
-              });
-              _loadMonthTasks();
-            },
-          ),
+              child: const Icon(Icons.chevron_right, size: 32),
+              onTap: () {
+                setState(() {
+                  focusedMonth =
+                      DateTime(focusedMonth.year, focusedMonth.month + 1);
+                });
+                loadMonthTasks();
+              }),
         ],
       ),
     );
   }
 
-  // ---------------- CALENDAR GRID ----------------
+  // CALENDAR GRID (SUNDAY FIRST)
   Widget _calendarGrid() {
-    final firstDay = DateTime(_focusedDay.year, _focusedDay.month, 1);
-    final firstWeekday = firstDay.weekday % 7; // Sunday = 0
+    final firstDay = DateTime(focusedMonth.year, focusedMonth.month, 1);
+    final firstWeekday = firstDay.weekday % 7;
+    final totalDays =
+        DateTime(focusedMonth.year, focusedMonth.month + 1, 0).day;
 
-    final daysInMonth =
-        DateTime(_focusedDay.year, _focusedDay.month + 1, 0).day;
-
-    List<Widget> grid = [];
+    List<Widget> cells = [];
 
     // EMPTY CELLS BEFORE DAY 1
     for (int i = 0; i < firstWeekday; i++) {
-      grid.add(Container());
+      cells.add(Container());
     }
 
     // DAYS OF MONTH
-    for (int day = 1; day <= daysInMonth; day++) {
-      DateTime date = DateTime(_focusedDay.year, _focusedDay.month, day);
+    for (int day = 1; day <= totalDays; day++) {
+      DateTime date =
+          DateTime(focusedMonth.year, focusedMonth.month, day);
       String key = DateFormat("yyyy-MM-dd").format(date);
 
-      bool hasTasks = taskMap.containsKey(key);
-      bool isSelected = DateFormat("yyyy-MM-dd").format(_selectedDay) == key;
+      bool isSelected =
+          DateFormat("yyyy-MM-dd").format(selectedDay) == key;
 
-      grid.add(
+      // DOT COLOR SELECTED BY IMPORTANCE
+      Color? dotColor;
+
+      if (tasksByDay.containsKey(key)) {
+        final tasks = tasksByDay[key]!;
+
+        bool hasHigh =
+            tasks.any((t) => t["importance"] == "High");
+        bool hasNormal =
+            tasks.any((t) => t["importance"] == "Normal");
+        bool hasLow =
+            tasks.any((t) => t["importance"] == "Low");
+
+        if (hasHigh) dotColor = Colors.redAccent;
+        else if (hasNormal) dotColor = Colors.orangeAccent;
+        else if (hasLow) dotColor = Colors.lightBlueAccent;
+      }
+
+      cells.add(
         GestureDetector(
-          onTap: () {
-            setState(() => _selectedDay = date);
-          },
+          onTap: () => setState(() => selectedDay = date),
           child: Column(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 44,
+                height: 44,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color:
-                      isSelected ? const Color(0xFFFF8A65) : Colors.transparent,
                   shape: BoxShape.circle,
+                  color: isSelected
+                      ? const Color(0xFFFF8A65)
+                      : Colors.transparent,
                 ),
                 child: Text(
                   "$day",
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black,
                     fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : Colors.black,
                   ),
                 ),
               ),
 
-              // DOT IF DAY HAS TASK
-              if (hasTasks)
+              if (dotColor != null)
                 Container(
-                  width: 6,
-                  height: 6,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF0F52BA),
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: dotColor,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -199,82 +229,157 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: GridView.count(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         crossAxisCount: 7,
-        children: grid,
+        children: cells,
       ),
     );
   }
 
-  // ---------------- TASK LIST FOR SELECTED DAY ----------------
-  Widget _taskListForSelectedDay() {
-    String key = DateFormat("yyyy-MM-dd").format(_selectedDay);
-    final tasks = taskMap[key] ?? [];
+  // SLIDE-UP TASK PANEL (COLLAPSED: 2 tasks)
+  Widget _taskSlideUpPanel() {
+    final key = DateFormat("yyyy-MM-dd").format(selectedDay);
+    final tasks = tasksByDay[key] ?? [];
 
-    if (tasks.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(18),
-        child: Text(
-          "No tasks for this day.",
-          style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
-        ),
-      );
-    }
+    return DraggableScrollableSheet(
+      initialChildSize: 0.18,
+      minChildSize: 0.18,
+      maxChildSize: 0.75,
+      builder: (context, scroll) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius:
+                BorderRadius.vertical(top: Radius.circular(20)),
+            boxShadow: [
+              BoxShadow(
+                  blurRadius: 10,
+                  color: Colors.black26,
+                  offset: Offset(0, -2))
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Panel handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
 
-    return Expanded(
-      child: ListView.builder(
-        padding: const EdgeInsets.all(20),
-        itemCount: tasks.length,
-        itemBuilder: (context, i) {
-          final t = tasks[i];
+              Text(
+                DateFormat("MMMM d").format(selectedDay),
+                style: const TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.bold),
+              ),
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEDEDED),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              t["name"] ?? "",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          );
-        },
-      ),
+              const SizedBox(height: 12),
+
+              Expanded(
+                child: ListView.builder(
+                  controller: scroll,
+                  itemCount: tasks.length.clamp(0, 50),
+                  itemBuilder: (context, i) {
+                    final t = tasks[i];
+
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          "/editTask",
+                          arguments: t,
+                        ).then((_) => loadMonthTasks());
+                      },
+                      child: _taskTile(t),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  // ---------------- NAV BAR ----------------
-  Widget _bottomNav(BuildContext context) {
+  // TASK TILE FOR SLIDE-UP PANEL
+  Widget _taskTile(Map<String, dynamic> t) {
+    String title = t["name"];
+    String time = t["time"];
+    String? img = t["petImageUrl"];
+    String importance = t["importance"];
+
+    Color color = Colors.orange;
+    if (importance == "High") color = Colors.redAccent;
+    if (importance == "Low") color = Colors.lightBlueAccent;
+
     return Container(
-      height: 95,
-      color: const Color(0xFF0F52BA),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _navItem(context, Icons.home, "Home", "/tasks"),
-          _navItem(context, Icons.calendar_today, "Calendar", "/calendar"),
-          _navItem(context, Icons.pets, "Pets", "/pets"),
-          _navItem(context, Icons.settings, "Settings", "/settings"),
-        ],
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDEDED),
+        borderRadius: BorderRadius.circular(12),
       ),
-    );
-  }
-
-  Widget _navItem(
-      BuildContext context, IconData icon, String label, String route) {
-    return GestureDetector(
-      onTap: () => Navigator.pushReplacementNamed(context, route),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
         children: [
-          Icon(icon, size: 28, color: Colors.white),
-          Text(label,
-              style: const TextStyle(color: Colors.white, fontSize: 14)),
+          // PET IMAGE
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              img ?? "",
+              width: 60,
+              height: 60,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 60,
+                height: 60,
+                color: Colors.grey[300],
+                child: const Icon(Icons.pets),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // TEXT
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  time,
+                  style: const TextStyle(color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+
+          // IMPORTANCE DOT
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color,
+            ),
+          ),
         ],
       ),
     );

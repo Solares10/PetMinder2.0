@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'delete_task_dialog.dart';
+import 'package:intl/intl.dart';
 
 class EditTaskScreen extends StatefulWidget {
   const EditTaskScreen({super.key});
@@ -13,30 +13,109 @@ class EditTaskScreen extends StatefulWidget {
 class _EditTaskScreenState extends State<EditTaskScreen> {
   final nameController = TextEditingController();
   final descController = TextEditingController();
-  final dateController = TextEditingController();
-  final noteController = TextEditingController();
+  String importance = "Normal";
 
-  String completedBy = "Me";
+  DateTime? selectedDate;
+  TimeOfDay? selectedTime;
+
+  String? selectedPetId;
+  String? selectedPetName;
+  String? selectedPetImageUrl;
+
+  List<Map<String, dynamic>> pets = [];
   late String taskId;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
-    final data =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final data = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
     taskId = data["id"];
     nameController.text = data["name"] ?? "";
     descController.text = data["description"] ?? "";
-    dateController.text = data["time"] ?? "";
-    completedBy = data["completedBy"] ?? "Me";
-    noteController.text = data["note"] ?? "";
+    importance = data["importance"] ?? "Normal";
+
+    selectedPetId = data["petId"];
+    selectedPetName = data["petName"];
+    selectedPetImageUrl = data["petImageUrl"];
+
+    selectedDate = (data["date"] as Timestamp).toDate();
+    selectedTime = _parseTime(data["time"]);
+
+    _loadPets();
+  }
+
+  // Convert "8:30 PM" → TimeOfDay
+  TimeOfDay _parseTime(String timeString) {
+    final format = DateFormat.jm();
+    final dt = format.parse(timeString);
+    return TimeOfDay.fromDateTime(dt);
+  }
+
+  Future<void> _loadPets() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final snap = await FirebaseFirestore.instance
+        .collection("users")
+        .doc(user.uid)
+        .collection("pets")
+        .get();
+
+    setState(() {
+      pets = snap.docs
+          .map((d) => {
+                "id": d.id,
+                "name": d["petName"],
+                "imageUrl": d["imageUrl"],
+              })
+          .toList();
+    });
+  }
+
+  Future<void> pickDate() async {
+    DateTime now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate ?? now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 2),
+    );
+
+    if (picked != null) {
+      setState(() => selectedDate = picked);
+    }
+  }
+
+  Future<void> pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: selectedTime ?? TimeOfDay.now(),
+    );
+
+    if (picked != null) {
+      setState(() => selectedTime = picked);
+    }
   }
 
   Future<void> saveTask() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+
+    if (selectedPetId == null) {
+      _showError("Select a pet");
+      return;
+    }
+    if (selectedDate == null) {
+      _showError("Select a date");
+      return;
+    }
+    if (selectedTime == null) {
+      _showError("Select a time");
+      return;
+    }
+
+    final formattedTime = selectedTime!.format(context);
 
     await FirebaseFirestore.instance
         .collection("users")
@@ -46,9 +125,21 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
         .update({
       "name": nameController.text.trim(),
       "description": descController.text.trim(),
-      "time": dateController.text.trim(),
-      "completedBy": completedBy,
-      "note": noteController.text.trim(),
+
+      // pet info
+      "petId": selectedPetId,
+      "petName": selectedPetName,
+      "petImageUrl": selectedPetImageUrl,
+
+      // scheduling
+      "date": DateTime(
+        selectedDate!.year,
+        selectedDate!.month,
+        selectedDate!.day,
+      ),
+      "time": formattedTime,
+
+      "importance": importance,
       "updatedAt": DateTime.now(),
     });
 
@@ -69,247 +160,216 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     Navigator.pop(context);
   }
 
+  void _showError(String text) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  // ---------------- UI ----------------
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      bottomNavigationBar: _bottomNav(context),
-      body: Column(
-        children: [
-          // TOP HEADER
-          Container(
-            height: 100,
-            width: double.infinity,
-            color: const Color(0xFF0F52BA),
-            alignment: Alignment.center,
-            child: const Text(
-              "EDIT TASK",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
 
-          // DELETE | CANCEL | SAVE
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(
-              children: [
-                // DELETE
-                SizedBox(
-                  width: 100,
-                  height: 44,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        barrierDismissible: true,
-                        builder: (context) {
-                          return DeleteTaskDialog(
-                            onDelete: () {
-                              deleteTask();
-                              Navigator.pop(context);
-                            },
-                            onCancel: () => Navigator.pop(context),
-                          );
-                        },
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE4E4E4),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      "Delete",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // CANCEL TEXT
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Center(
-                      child: Text(
-                        "Cancel Edit",
-                        style: TextStyle(
-                          color: Color(0xFF0F52BA),
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // SAVE
-                SizedBox(
-                  width: 100,
-                  height: 44,
-                  child: ElevatedButton(
-                    onPressed: saveTask,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFE4E4E4),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      "Save",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // FORM AREA
-          Expanded(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _label("Name"),
-                    _input(nameController, "Enter Title..."),
-                    const SizedBox(height: 25),
-                    _label("Description"),
-                    _input(descController, "Enter Description..."),
-                    const SizedBox(height: 25),
-                    _label("Date & Time"),
-                    _input(dateController, "Complete by Month, ##:##AM"),
-                    const SizedBox(height: 25),
-                    _label("Completed By"),
-                    _dropdown(
-                      value: completedBy,
-                      items: const ["Me", "Family", "Friend"],
-                      onChanged: (v) =>
-                          setState(() => completedBy = v.toString()),
-                    ),
-                    const SizedBox(height: 25),
-                    _label("Note"),
-                    _input(noteController, "Some optional note here ..."),
-                    const SizedBox(height: 40),
-                    Center(
-                      child: ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE4E4E4),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          "SKIP FOR TODAY",
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+      appBar: AppBar(
+        backgroundColor: Colors.blue,
+        title: const Text("EDIT TASK"),
+        actions: [
+          IconButton(
+              onPressed: deleteTask,
+              icon: const Icon(Icons.delete, color: Colors.white))
         ],
+      ),
+
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _label("Task Name"),
+            _input(nameController, "Task title..."),
+
+            const SizedBox(height: 20),
+            _label("Description"),
+            _input(descController, "Task details..."),
+
+            const SizedBox(height: 20),
+            _label("Pet"),
+            _petSelector(),
+
+            const SizedBox(height: 20),
+            _label("Date"),
+            _dateButton(),
+
+            const SizedBox(height: 20),
+            _label("Time"),
+            _timeButton(),
+
+            const SizedBox(height: 20),
+            _label("Importance"),
+            _importanceDropdown(),
+
+            const SizedBox(height: 30),
+            _saveButton(),
+          ],
+        ),
       ),
     );
   }
 
-  // Label helper
+  // ---------- COMPONENTS ----------
+
   Widget _label(String text) => Text(
         text,
         style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-          color: Color(0xFF444444),
-        ),
+            fontSize: 16, fontWeight: FontWeight.bold),
       );
 
-  // Input
-  Widget _input(TextEditingController controller, String hint) {
+  Widget _input(TextEditingController c, String hint) {
     return Container(
       height: 50,
-      margin: const EdgeInsets.only(top: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFE6E6E6),
-        borderRadius: BorderRadius.circular(8),
-      ),
+          color: const Color(0xFFEDEDED),
+          borderRadius: BorderRadius.circular(10)),
       child: TextField(
-        controller: controller,
+        controller: c,
         decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: hint,
-          hintStyle: const TextStyle(color: Color(0xFF888888)),
-        ),
+            border: InputBorder.none, hintText: hint),
       ),
     );
   }
 
-  // Dropdown
-  Widget _dropdown({
-    required String value,
-    required List<String> items,
-    required Function(String?) onChanged,
-  }) {
+  Widget _petSelector() {
+    if (pets.isEmpty) {
+      return const Text("No pets found.", style: TextStyle(color: Colors.black54));
+    }
+
+    return SizedBox(
+      height: 120,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: pets.length,
+        itemBuilder: (context, i) {
+          final pet = pets[i];
+          final bool active = (selectedPetId == pet["id"]);
+
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                selectedPetId = pet["id"];
+                selectedPetName = pet["name"];
+                selectedPetImageUrl = pet["imageUrl"];
+              });
+            },
+            child: Container(
+              width: 100,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: active ? Colors.orange : Colors.transparent,
+                    width: 3),
+                boxShadow: const [
+                  BoxShadow(
+                      blurRadius: 4,
+                      color: Colors.black12,
+                      offset: Offset(0, 3))
+                ],
+              ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius:
+                          const BorderRadius.vertical(top: Radius.circular(12)),
+                      child: Image.network(
+                        pet["imageUrl"] ?? "",
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.pets, size: 40),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Text(
+                      pet["name"],
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _dateButton() {
+    return ElevatedButton(
+      onPressed: pickDate,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFEDEDED),
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      child: Text(
+        selectedDate == null
+            ? "Pick Date"
+            : DateFormat('MMMM d, yyyy').format(selectedDate!),
+      ),
+    );
+  }
+
+  Widget _timeButton() {
+    return ElevatedButton(
+      onPressed: pickTime,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFFEDEDED),
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      child: Text(
+        selectedTime == null ? "Pick Time" : selectedTime!.format(context),
+      ),
+    );
+  }
+
+  Widget _importanceDropdown() {
     return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFE6E6E6),
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFFEDEDED),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton(
-          value: value,
-          items: items
+          value: importance,
+          items: ["High", "Normal", "Low"]
               .map((e) => DropdownMenuItem(value: e, child: Text(e)))
               .toList(),
-          onChanged: onChanged,
+          onChanged: (v) => setState(() => importance = v.toString()),
         ),
       ),
     );
   }
 
-  // Bottom navbar
-  Widget _bottomNav(BuildContext context) {
-    return Container(
-      height: 95,
-      color: const Color(0xFF0F52BA),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _navItem(context, Icons.home, "Home", "/tasks"),
-          _navItem(
-              context, Icons.calendar_today, "Calendar", "/calendarFilter"),
-          _navItem(context, Icons.pets, "Pets", "/pets"),
-          _navItem(context, Icons.settings, "Settings", "/settings"),
-        ],
-      ),
-    );
-  }
-
-  Widget _navItem(
-      BuildContext context, IconData icon, String label, String route) {
-    return GestureDetector(
-      onTap: () => Navigator.pushReplacementNamed(context, route),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 28, color: Colors.white),
-          Text(label,
-              style: const TextStyle(color: Colors.white, fontSize: 14)),
-        ],
+  Widget _saveButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: ElevatedButton(
+        onPressed: saveTask,
+        style:
+            ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+        child: const Text("Save Changes",
+            style: TextStyle(color: Colors.white)),
       ),
     );
   }

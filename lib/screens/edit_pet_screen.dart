@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:petminder_flutter/helpers/image_upload.dart';
 
 class EditPetScreen extends StatefulWidget {
   const EditPetScreen({super.key});
@@ -22,16 +20,15 @@ class _EditPetScreenState extends State<EditPetScreen> {
   final height = TextEditingController();
   final vaccines = TextEditingController();
 
-  File? newImageFile;
-  String? existingImageURL;
+  String? newImageURL;
+  late String existingImageURL;
   late String petId;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    final data =
-        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final data = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
     petId = data["id"];
     name.text = data["petName"];
@@ -42,30 +39,19 @@ class _EditPetScreenState extends State<EditPetScreen> {
     weight.text = data["weight"];
     height.text = data["height"];
     vaccines.text = data["vaccines"];
-    existingImageURL = data["imageUrl"];
+    existingImageURL = data["imageUrl"] ?? "";
   }
 
   Future<void> pickImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() => newImageFile = File(picked.path));
+    final url = await pickAndUploadPetImage();
+    if (url != null) {
+      setState(() => newImageURL = url);
     }
   }
 
   Future<void> saveChanges() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
-    String imageURL = existingImageURL ?? "";
-
-    if (newImageFile != null) {
-      final ref = FirebaseStorage.instance
-          .ref("pets/${user.uid}/${DateTime.now().millisecondsSinceEpoch}.jpg");
-
-      await ref.putFile(newImageFile!);
-      imageURL = await ref.getDownloadURL();
-    }
 
     await FirebaseFirestore.instance
         .collection("users")
@@ -81,7 +67,7 @@ class _EditPetScreenState extends State<EditPetScreen> {
       "weight": weight.text.trim(),
       "height": height.text.trim(),
       "vaccines": vaccines.text.trim(),
-      "imageUrl": imageURL,
+      "imageUrl": newImageURL ?? existingImageURL,
       "updatedAt": DateTime.now(),
     });
 
@@ -90,6 +76,8 @@ class _EditPetScreenState extends State<EditPetScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final displayImage = newImageURL ?? existingImageURL;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -100,27 +88,26 @@ class _EditPetScreenState extends State<EditPetScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // IMAGE PREVIEW
             GestureDetector(
               onTap: pickImage,
               child: Container(
                 height: 200,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(12)),
-                child: newImageFile != null
-                    ? ClipRRect(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: displayImage.isEmpty
+                    ? const Icon(Icons.pets, size: 60)
+                    : ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.file(newImageFile!, fit: BoxFit.cover),
-                      )
-                    : existingImageURL != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(existingImageURL!,
-                                fit: BoxFit.cover),
-                          )
-                        : const Icon(Icons.pets, size: 60),
+                        child: Image.network(
+                          displayImage,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.pets, size: 60),
+                        ),
+                      ),
               ),
             ),
 
@@ -143,10 +130,11 @@ class _EditPetScreenState extends State<EditPetScreen> {
               child: ElevatedButton(
                 onPressed: saveChanges,
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade800),
+                  backgroundColor: Colors.blue.shade800,
+                ),
                 child: const Text("Save Changes"),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -159,8 +147,7 @@ class _EditPetScreenState extends State<EditPetScreen> {
       children: [
         const SizedBox(height: 12),
         Text(label,
-            style: const TextStyle(
-                fontSize: 14, fontWeight: FontWeight.bold)),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         Container(
           height: 50,
@@ -170,10 +157,9 @@ class _EditPetScreenState extends State<EditPetScreen> {
               border: Border.all(color: Colors.grey)),
           child: TextField(
             controller: controller,
-            decoration:
-                const InputDecoration(border: InputBorder.none),
+            decoration: const InputDecoration(border: InputBorder.none),
           ),
-        )
+        ),
       ],
     );
   }

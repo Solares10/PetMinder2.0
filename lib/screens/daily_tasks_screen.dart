@@ -1,21 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:petminder_flutter/widgets/bottom_nav.dart';
-
 
 class DailyTasksScreen extends StatelessWidget {
   const DailyTasksScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final User? user = FirebaseAuth.instance.currentUser;
+    final user = FirebaseAuth.instance.currentUser;
 
-    // SAFETY CHECK
     if (user == null) {
       return const Scaffold(
-        backgroundColor: Colors.white,
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -27,17 +24,21 @@ class DailyTasksScreen extends StatelessWidget {
         backgroundColor: Colors.black,
         child: const Icon(Icons.add, size: 32, color: Colors.white),
       ),
+
       bottomNavigationBar: const BottomNav(activeIndex: 0),
+
       body: Column(
         children: [
           _header(),
+
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: FirebaseFirestore.instance
                   .collection("users")
                   .doc(user.uid)
                   .collection("tasks")
-                  .orderBy("createdAt", descending: false)
+                  .orderBy("date")
+                  .orderBy("time") // sorts properly
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
@@ -47,10 +48,37 @@ class DailyTasksScreen extends StatelessWidget {
                 final docs = snapshot.data!.docs;
 
                 if (docs.isEmpty) {
-                  return _emptySchedule();
+                  return _empty();
                 }
 
-                return _taskList(context, docs);
+                return ListView.builder(
+                  padding: const EdgeInsets.only(top: 20),
+                  itemCount: docs.length,
+                  itemBuilder: (context, i) {
+                    final task = docs[i].data();
+
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          "/editTask",
+                          arguments: {
+                            "id": docs[i].id,
+                            "name": task["name"],
+                            "description": task["description"],
+                            "importance": task["importance"],
+                            "petId": task["petId"],
+                            "petName": task["petName"],
+                            "petImageUrl": task["petImageUrl"],
+                            "date": task["date"],
+                            "time": task["time"],
+                          },
+                        );
+                      },
+                      child: _taskCard(task),
+                    );
+                  },
+                );
               },
             ),
           ),
@@ -59,15 +87,14 @@ class DailyTasksScreen extends StatelessWidget {
     );
   }
 
-  // ---------------- HEADER ----------------
+  // -------- HEADER --------
   Widget _header() {
-    String today = DateFormat('MMMM d').format(DateTime.now());
+    final today = DateFormat('MMMM d').format(DateTime.now());
 
     return Column(
       children: [
         Container(
           height: 100,
-          width: double.infinity,
           color: const Color(0xFF0F52BA),
           alignment: Alignment.center,
           child: const Text(
@@ -88,6 +115,7 @@ class DailyTasksScreen extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
             ),
           ),
@@ -96,67 +124,38 @@ class DailyTasksScreen extends StatelessWidget {
     );
   }
 
-  // ---------------- EMPTY STATE ----------------
-  Widget _emptySchedule() {
+  // -------- EMPTY UI --------
+  Widget _empty() {
     return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(40),
-        child: Text(
-          "Create a task by pressing the '+' icon below!",
-          style: TextStyle(fontSize: 16, color: Color(0xFF666666)),
-          textAlign: TextAlign.center,
-        ),
+      child: Text(
+        "No tasks yet.\nTap + to add one!",
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 16, color: Colors.black54),
       ),
     );
   }
 
-  // ---------------- TASK LIST ----------------
-  Widget _taskList(BuildContext context,
-      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 20),
-      itemCount: docs.length,
-      itemBuilder: (context, i) {
-        final task = docs[i].data();
-        final taskId = docs[i].id; // ⭐ IMPORTANT: PASS FIRESTORE ID
+  // -------- TASK CARD UI --------
+  Widget _taskCard(Map<String, dynamic> task) {
+    String time = task["time"] ?? "";
+    String title = task["name"] ?? "";
+    String desc = task["description"] ?? "";
 
-        return GestureDetector(
-          onTap: () {
-            Navigator.pushNamed(
-              context,
-              "/editTask",
-              arguments: {
-                "id": taskId,
-                "name": task["name"],
-                "description": task["description"],
-                "time": task["time"],
-                "completedBy": task["completedBy"],
-                "note": task["note"],
-              },
-            );
-          },
-          child: _taskCard(
-            time: task["time"] ?? "",
-            title: task["name"] ?? "",
-            description: task["description"] ?? "",
-          ),
-        );
-      },
-    );
-  }
+    String importance = task["importance"] ?? "Normal";
 
-  // ---------------- TASK CARD UI ----------------
-  Widget _taskCard({
-    required String time,
-    required String title,
-    required String description,
-  }) {
+    Color color = Colors.grey;
+    if (importance == "High") color = Colors.redAccent;
+    if (importance == "Normal") color = Colors.orangeAccent;
+    if (importance == "Low") color = Colors.lightBlueAccent;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // SHOW TIME
           SizedBox(
-            width: 80,
+            width: 70,
             child: Text(
               time,
               style: const TextStyle(
@@ -165,84 +164,67 @@ class DailyTasksScreen extends StatelessWidget {
               ),
             ),
           ),
+
+          // PET IMAGE + TASK CARD
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: const Color(0xFFEDEDED),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  // Title row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                  // PET IMAGE ONLY (your choice)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      task["petImageUrl"] ?? "",
+                      width: 55,
+                      height: 55,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 55,
+                        height: 55,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.pets),
                       ),
-                      const Icon(Icons.more_horiz, color: Colors.black54),
-                    ],
+                    ),
                   ),
 
-                  const SizedBox(height: 4),
+                  const SizedBox(width: 10),
 
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
+                  // TASK TITLE + DESC
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          desc,
+                          style: const TextStyle(
+                              fontSize: 14, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // IMPORTANCE DOT
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------- NAV BAR ----------------
-  Widget _bottomNav(BuildContext context) {
-    return Container(
-      height: 95,
-      color: const Color(0xFF0F52BA),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _navItem(context, Icons.home, "Home", "/tasks", active: true),
-          _navItem(context, Icons.calendar_today, "Calendar", "/calendar"),
-          _navItem(context, Icons.pets, "Pets", "/pets"),
-          _navItem(context, Icons.settings, "Settings", "/settings"),
-        ],
-      ),
-    );
-  }
-
-  Widget _navItem(
-      BuildContext context, IconData icon, String label, String route,
-      {bool active = false}) {
-    return GestureDetector(
-      onTap: () => Navigator.pushReplacementNamed(context, route),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 28,
-            color: active ? const Color(0xFFFF8A65) : Colors.white,
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              color: active ? const Color(0xFFFF8A65) : Colors.white,
-              fontSize: 14,
             ),
           ),
         ],
