@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "210515344792",
+    "project_id": "petminder-app",
+    "storage_bucket": "petminder-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:210515344792:android:e40b6e4d237b6057a2ffed",
+        "android_client_info": {
+          "package_name": "com.example.myapplication12"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "210515344792-lbgnkg6r2eb95nqthvt0aethbrjmv9lc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTHMCMMwGbms93dFAOBb70EUT_Zi3IFfA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "210515344792-lbgnkg6r2eb95nqthvt0aethbrjmv9lc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

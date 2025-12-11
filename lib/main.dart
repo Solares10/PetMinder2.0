@@ -28,7 +28,13 @@ import 'screens/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+
+  try {
+    await Firebase.initializeApp();
+  } catch (e, st) {
+    debugPrint('FIREBASE INIT ERROR: $e');
+    debugPrintStack(stackTrace: st);
+  }
 
   runApp(const PetMinderApp());
 }

@@ -79,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       "notifHealthUpdates": notifHealthUpdates,
       "pets": petNames,
       "profileImage": profileUrl,
-    }, SetOptions.merge());
+    }, SetOptions(merge: true));
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Profile updated!")),
