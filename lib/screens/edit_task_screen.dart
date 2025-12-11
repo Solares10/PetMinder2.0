@@ -23,9 +23,9 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    final data = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final data =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
-    // Load data from Firestore document into fields
     taskId = data["id"];
     nameController.text = data["name"] ?? "";
     descController.text = data["description"] ?? "";
@@ -57,10 +57,11 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
 
   Future<void> deleteTask() async {
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
     await FirebaseFirestore.instance
         .collection("users")
-        .doc(user!.uid)
+        .doc(user.uid)
         .collection("tasks")
         .doc(taskId)
         .delete();
@@ -72,12 +73,10 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
-      bottomNavigationBar: _bottomNav(),
-
+      bottomNavigationBar: _bottomNav(context),
       body: Column(
         children: [
-          // ================= TOP BLUE HEADER =================
+          // TOP HEADER
           Container(
             height: 100,
             width: double.infinity,
@@ -93,7 +92,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
             ),
           ),
 
-          // ================= DELETE | CANCEL EDIT | SAVE ROW =================
+          // DELETE | CANCEL | SAVE
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Row(
@@ -132,7 +131,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                   ),
                 ),
 
-                // CANCEL EDIT (CENTER TEXT)
+                // CANCEL TEXT
                 Expanded(
                   child: GestureDetector(
                     onTap: () => Navigator.pop(context),
@@ -149,7 +148,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                   ),
                 ),
 
-                // SAVE BUTTON
+                // SAVE
                 SizedBox(
                   width: 100,
                   height: 44,
@@ -172,104 +171,46 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
             ),
           ),
 
-          // ================= FORM SCROLL AREA =================
+          // FORM AREA
           Expanded(
             child: SingleChildScrollView(
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-
                   children: [
-                    // NAME
-                    const Text(
-                      "Name",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF444444),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
+                    _label("Name"),
                     _input(nameController, "Enter Title..."),
-
-                    // DESCRIPTION
                     const SizedBox(height: 25),
-                    const Text(
-                      "Description",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF444444),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
+                    _label("Description"),
                     _input(descController, "Enter Description..."),
-
-                    // DATE & TIME
                     const SizedBox(height: 25),
-                    const Text(
-                      "Date & Time",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF444444),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
+                    _label("Date & Time"),
                     _input(dateController, "Complete by Month, ##:##AM"),
-
-                    // COMPLETED BY DROPDOWN
                     const SizedBox(height: 25),
-                    const Text(
-                      "Completed By:",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF444444),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
+                    _label("Completed By"),
                     _dropdown(
                       value: completedBy,
                       items: const ["Me", "Family", "Friend"],
                       onChanged: (v) =>
                           setState(() => completedBy = v.toString()),
                     ),
-
-                    // NOTE
                     const SizedBox(height: 25),
-                    const Text(
-                      "Note:",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF444444),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
+                    _label("Note"),
                     _input(noteController, "Some optional note here ..."),
-
-                    // SKIP FOR TODAY BUTTON
                     const SizedBox(height: 40),
                     Center(
-                      child: SizedBox(
-                        width: 160,
-                        height: 45,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            // TODO: add skip logic
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE4E4E4),
-                            elevation: 0,
-                          ),
-                          child: const Text(
-                            "SKIP FOR TODAY",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
+                      child: ElevatedButton(
+                        onPressed: () {},
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE4E4E4),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          "SKIP FOR TODAY",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
@@ -284,10 +225,21 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     );
   }
 
-  // ---------------- INPUT FIELD ----------------
+  // Label helper
+  Widget _label(String text) => Text(
+        text,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+          color: Color(0xFF444444),
+        ),
+      );
+
+  // Input
   Widget _input(TextEditingController controller, String hint) {
     return Container(
       height: 50,
+      margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.symmetric(horizontal: 15),
       decoration: BoxDecoration(
         color: const Color(0xFFE6E6E6),
@@ -304,7 +256,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     );
   }
 
-  // ---------------- DROPDOWN ----------------
+  // Dropdown
   Widget _dropdown({
     required String value,
     required List<String> items,
@@ -320,48 +272,45 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton(
           value: value,
-          items:
-              items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          items: items
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .toList(),
           onChanged: onChanged,
         ),
       ),
     );
   }
 
-  // ---------------- BOTTOM NAVIGATION ----------------
-  Widget _bottomNav() {
+  // Bottom navbar
+  Widget _bottomNav(BuildContext context) {
     return Container(
       height: 95,
-      decoration: const BoxDecoration(color: Color(0xFF0F52BA)),
+      color: const Color(0xFF0F52BA),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _navItem(Icons.home, "Home", active: true),
-          _navItem(Icons.calendar_today, "Calendar"),
-          _navItem(Icons.pets, "Pets"),
-          _navItem(Icons.settings, "Settings"),
+          _navItem(context, Icons.home, "Home", "/tasks"),
+          _navItem(
+              context, Icons.calendar_today, "Calendar", "/calendarFilter"),
+          _navItem(context, Icons.pets, "Pets", "/pets"),
+          _navItem(context, Icons.settings, "Settings", "/settings"),
         ],
       ),
     );
   }
 
-  Widget _navItem(IconData icon, String label, {bool active = false}) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          icon,
-          size: 28,
-          color: active ? const Color(0xFFFF8A65) : Colors.white,
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            color: active ? const Color(0xFFFF8A65) : Colors.white,
-            fontSize: 14,
-          ),
-        ),
-      ],
+  Widget _navItem(
+      BuildContext context, IconData icon, String label, String route) {
+    return GestureDetector(
+      onTap: () => Navigator.pushReplacementNamed(context, route),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 28, color: Colors.white),
+          Text(label,
+              style: const TextStyle(color: Colors.white, fontSize: 14)),
+        ],
+      ),
     );
   }
 }

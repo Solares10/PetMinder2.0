@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:petminder_flutter/widgets/bottom_nav.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -65,8 +66,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     // Upload profile image if changed
     if (profileImage != null) {
-      final ref = FirebaseStorage.instance
-          .ref("users/${user!.uid}/profile.jpg");
+      final ref =
+          FirebaseStorage.instance.ref("users/${user!.uid}/profile.jpg");
       await ref.putFile(profileImage!);
       profileUrl = await ref.getDownloadURL();
     }
@@ -90,8 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      bottomNavigationBar: _bottomNav(),
-
+      bottomNavigationBar: const BottomNav(activeIndex: 2),
       body: Column(
         children: [
           // ================= TOP BAR =================
@@ -198,9 +198,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           Wrap(
                             spacing: 10,
-                            children: petNames
-                                .map((p) => _chip(p))
-                                .toList(),
+                            children: petNames.map((p) => _chip(p)).toList(),
                           ),
 
                           const SizedBox(height: 20),
@@ -308,8 +306,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         Expanded(
           child: Text(label,
-              style: const TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w500)),
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
         ),
         Switch(
           value: value,
@@ -341,8 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(icon,
-            size: 30,
-            color: active ? const Color(0xFFFF8A65) : Colors.white),
+            size: 30, color: active ? const Color(0xFFFF8A65) : Colors.white),
         Text(
           label,
           style: TextStyle(

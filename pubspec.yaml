@@ -5,7 +5,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.9.0
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -25,6 +25,9 @@ dependencies:
   # ⭐ MATERIAL DESIGN & WIDGETS
   flutter_svg: ^2.0.9
 
+  # ⭐ DATE FORMAT PACKAGE (REQUIRED FOR DateFormat)
+  intl: ^0.19.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -36,3 +39,4 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    

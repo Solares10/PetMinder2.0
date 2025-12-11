@@ -1,37 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
+import 'package:petminder_flutter/widgets/bottom_nav.dart';
+
 
 class DailyTasksScreen extends StatelessWidget {
   const DailyTasksScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    final User? user = FirebaseAuth.instance.currentUser;
+
+    // SAFETY CHECK
+    if (user == null) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
-
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, "/createTask");
-        },
+        onPressed: () => Navigator.pushNamed(context, "/createTask"),
         backgroundColor: Colors.black,
         child: const Icon(Icons.add, size: 32, color: Colors.white),
       ),
-
-      bottomNavigationBar: _bottomNav(),
-
+      bottomNavigationBar: const BottomNav(activeIndex: 0),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _header(),
-
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: FirebaseFirestore.instance
                   .collection("users")
-                  .doc(user!.uid)
+                  .doc(user.uid)
                   .collection("tasks")
                   .orderBy("createdAt", descending: false)
                   .snapshots(),
@@ -40,11 +44,13 @@ class DailyTasksScreen extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (snapshot.data!.docs.isEmpty) {
+                final docs = snapshot.data!.docs;
+
+                if (docs.isEmpty) {
                   return _emptySchedule();
                 }
 
-                return _taskList(snapshot.data!.docs);
+                return _taskList(context, docs);
               },
             ),
           ),
@@ -53,9 +59,10 @@ class DailyTasksScreen extends StatelessWidget {
     );
   }
 
-  // ----------------------------- UI COMPONENTS -----------------------------
-
+  // ---------------- HEADER ----------------
   Widget _header() {
+    String today = DateFormat('MMMM d').format(DateTime.now());
+
     return Column(
       children: [
         Container(
@@ -72,23 +79,24 @@ class DailyTasksScreen extends StatelessWidget {
             ),
           ),
         ),
-
-        // DATE
         Padding(
           padding: const EdgeInsets.only(left: 20, top: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text("October 21",
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-              SizedBox(height: 10),
-            ],
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              today,
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ),
       ],
     );
   }
 
+  // ---------------- EMPTY STATE ----------------
   Widget _emptySchedule() {
     return const Center(
       child: Padding(
@@ -102,22 +110,42 @@ class DailyTasksScreen extends StatelessWidget {
     );
   }
 
-  Widget _taskList(List<QueryDocumentSnapshot> docs) {
+  // ---------------- TASK LIST ----------------
+  Widget _taskList(BuildContext context,
+      List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     return ListView.builder(
       padding: const EdgeInsets.only(top: 20),
       itemCount: docs.length,
       itemBuilder: (context, i) {
-        final task = docs[i].data() as Map<String, dynamic>;
+        final task = docs[i].data();
+        final taskId = docs[i].id; // ⭐ IMPORTANT: PASS FIRESTORE ID
 
-        return _taskCard(
-          time: task["time"] ?? "",
-          title: task["name"] ?? "",
-          description: task["description"] ?? "",
+        return GestureDetector(
+          onTap: () {
+            Navigator.pushNamed(
+              context,
+              "/editTask",
+              arguments: {
+                "id": taskId,
+                "name": task["name"],
+                "description": task["description"],
+                "time": task["time"],
+                "completedBy": task["completedBy"],
+                "note": task["note"],
+              },
+            );
+          },
+          child: _taskCard(
+            time: task["time"] ?? "",
+            title: task["name"] ?? "",
+            description: task["description"] ?? "",
+          ),
         );
       },
     );
   }
 
+  // ---------------- TASK CARD UI ----------------
   Widget _taskCard({
     required String time,
     required String title,
@@ -126,9 +154,7 @@ class DailyTasksScreen extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // TIME
           SizedBox(
             width: 80,
             child: Text(
@@ -139,8 +165,6 @@ class DailyTasksScreen extends StatelessWidget {
               ),
             ),
           ),
-
-          // TASK CARD
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(12),
@@ -151,7 +175,7 @@ class DailyTasksScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // TITLE + MENU
+                  // Title row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -184,39 +208,45 @@ class DailyTasksScreen extends StatelessWidget {
     );
   }
 
-  Widget _bottomNav() {
+  // ---------------- NAV BAR ----------------
+  Widget _bottomNav(BuildContext context) {
     return Container(
       height: 95,
-      decoration: const BoxDecoration(color: Color(0xFF0F52BA)),
+      color: const Color(0xFF0F52BA),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _navItem(Icons.home, "Home", active: true),
-          _navItem(Icons.calendar_today, "Calendar"),
-          _navItem(Icons.pets, "Pets"),
-          _navItem(Icons.settings, "Settings"),
+          _navItem(context, Icons.home, "Home", "/tasks", active: true),
+          _navItem(context, Icons.calendar_today, "Calendar", "/calendar"),
+          _navItem(context, Icons.pets, "Pets", "/pets"),
+          _navItem(context, Icons.settings, "Settings", "/settings"),
         ],
       ),
     );
   }
 
-  Widget _navItem(IconData icon, String label, {bool active = false}) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          icon,
-          size: 28,
-          color: active ? Color(0xFFFF8A65) : Colors.white,
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            color: active ? Color(0xFFFF8A65) : Colors.white,
-            fontSize: 14,
+  Widget _navItem(
+      BuildContext context, IconData icon, String label, String route,
+      {bool active = false}) {
+    return GestureDetector(
+      onTap: () => Navigator.pushReplacementNamed(context, route),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 28,
+            color: active ? const Color(0xFFFF8A65) : Colors.white,
           ),
-        ),
-      ],
+          Text(
+            label,
+            style: TextStyle(
+              color: active ? const Color(0xFFFF8A65) : Colors.white,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

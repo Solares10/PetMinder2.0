@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:petminder_flutter/widgets/bottom_nav.dart';
 
 class CalendarMinimizedScreen extends StatelessWidget {
   const CalendarMinimizedScreen({super.key});
@@ -18,7 +19,9 @@ class CalendarMinimizedScreen extends StatelessWidget {
       ),
 
       // Bottom Navigation Bar
-      bottomNavigationBar: _bottomNav(),
+bottomNavigationBar: const BottomNav(activeIndex: 1),
+,
+
 
       body: Column(
         children: [

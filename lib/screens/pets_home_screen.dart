@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:petminder_flutter/widgets/bottom_nav.dart';
 
 class PetsHomeScreen extends StatefulWidget {
   const PetsHomeScreen({super.key});
@@ -25,7 +26,8 @@ class _PetsHomeScreenState extends State<PetsHomeScreen> {
           Navigator.pushNamed(context, "/petinfo1");
         },
       ),
-      bottomNavigationBar: _bottomNav(),
+bottomNavigationBar: const BottomNav(activeIndex: 2),
+
       body: Column(
         children: [
           // TOP BAR

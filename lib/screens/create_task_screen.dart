@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   const CreateTaskScreen({super.key});
@@ -17,14 +19,35 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   String completedBy = "Me";
   String importance = "Normal";
 
+  Future<void> saveTask() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    await FirebaseFirestore.instance
+        .collection("users")
+        .doc(user.uid)
+        .collection("tasks")
+        .add({
+      "name": nameController.text.trim(),
+      "description": descController.text.trim(),
+      "time": dateController.text.trim(),
+      "repeat": repeat,
+      "repeatOption": repeatOption,
+      "completedBy": completedBy,
+      "importance": importance,
+      "createdAt": DateTime.now(),
+    });
+
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
-      // TOP BLUE HEADER
       body: Column(
         children: [
+          // HEADER
           Container(
             height: 100,
             width: double.infinity,
@@ -40,13 +63,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             ),
           ),
 
-          // CANCEL / SAVE ROW
+          // CANCEL / SAVE
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               children: [
-                // CANCEL
                 SizedBox(
                   width: 100,
                   height: 44,
@@ -56,44 +77,31 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       backgroundColor: const Color(0xFFE6E6E6),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      "Cancel",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
+                    child: const Text("Cancel",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: Colors.black)),
                   ),
                 ),
-
                 const Spacer(),
-
-                // SAVE
                 SizedBox(
                   width: 100,
                   height: 44,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Add Firebase save
-                    },
+                    onPressed: saveTask,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFE6E6E6),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      "Save",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
+                    child: const Text("Save",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, color: Colors.black)),
                   ),
                 ),
               ],
             ),
           ),
 
-          // MAIN SCROLL AREA
+          // FORM
           Expanded(
             child: SingleChildScrollView(
               child: Padding(
@@ -101,81 +109,56 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // NAME
-                    const Text(
-                      "Name",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF444444),
-                      ),
-                    ),
+                    const Text("Name",
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF444444))),
                     const SizedBox(height: 6),
                     _input(nameController, "Enter Title..."),
 
-                    // DESCRIPTION
                     const SizedBox(height: 20),
-                    const Text(
-                      "Description",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF444444),
-                      ),
-                    ),
+                    const Text("Description",
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF444444))),
                     const SizedBox(height: 6),
                     _input(descController, "Enter Description..."),
 
-                    // DATE & TIME
                     const SizedBox(height: 20),
-                    const Text(
-                      "Date & Time",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF444444),
-                      ),
-                    ),
+                    const Text("Date & Time",
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF444444))),
                     const SizedBox(height: 6),
                     _input(dateController, "Complete by Month, 12:00 AM"),
 
-                    // REPEAT SWITCH
+                    // Repeat toggle
                     const SizedBox(height: 24),
                     Row(
                       children: [
-                        const Text(
-                          "Repeat this task?",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Color(0xFF444444),
-                          ),
-                        ),
+                        const Text("Repeat this task?",
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
                         const Spacer(),
                         Switch(
-                          value: repeat,
-                          onChanged: (v) => setState(() => repeat = v),
-                        ),
+                            value: repeat,
+                            onChanged: (v) => setState(() => repeat = v)),
                       ],
                     ),
 
-                    // REPEAT OPTIONS (Radio Buttons)
                     const SizedBox(height: 12),
-                    const Text(
-                      "Repeats:",
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: Color(0xFF444444)),
-                    ),
+                    const Text("Repeats:",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 10),
-
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE6E6E6),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                          color: const Color(0xFFE6E6E6),
+                          borderRadius: BorderRadius.circular(8)),
                       child: Column(
                         children: [
                           _radio("Daily"),
@@ -186,38 +169,24 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       ),
                     ),
 
-                    // COMPLETED BY (Dropdown)
                     const SizedBox(height: 24),
-                    const Text(
-                      "Completed By:",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF444444),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
+                    const Text("Completed By:",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     _dropdown(
                       value: completedBy,
-                      items: ["Me", "Family", "Friend"],
+                      items: const ["Me", "Family", "Friend"],
                       onChanged: (v) =>
                           setState(() => completedBy = v.toString()),
                     ),
 
-                    // IMPORTANCE (Dropdown)
                     const SizedBox(height: 24),
-                    const Text(
-                      "Importance",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Color(0xFF444444),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
+                    const Text("Importance",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     _dropdown(
                       value: importance,
-                      items: ["Low", "Normal", "High"],
+                      items: const ["Low", "Normal", "High"],
                       onChanged: (v) =>
                           setState(() => importance = v.toString()),
                     ),
@@ -231,61 +200,49 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     );
   }
 
-  // INPUT FIELD
-  Widget _input(TextEditingController controller, String hint) {
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE6E6E6),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: hint,
-          hintStyle: const TextStyle(color: Color(0xFF999999)),
+  Widget _input(TextEditingController controller, String hint) => Container(
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE6E6E6),
+          borderRadius: BorderRadius.circular(8),
         ),
-      ),
-    );
-  }
-
-  // RADIO BUTTON OPTION
-  Widget _radio(String label) {
-    return RadioListTile(
-      value: label,
-      groupValue: repeatOption,
-      title: Text(label),
-      onChanged: (value) {
-        setState(() => repeatOption = value.toString());
-      },
-    );
-  }
-
-  // DROPDOWN MENU
-  Widget _dropdown({
-    required String value,
-    required List<String> items,
-    required Function(String?) onChanged,
-  }) {
-    return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE6E6E6),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton(
-          value: value,
-          items: items
-              .map((e) =>
-                  DropdownMenuItem(value: e, child: Text(e)))
-              .toList(),
-          onChanged: onChanged,
+        child: TextField(
+          controller: controller,
+          decoration: InputDecoration(
+            border: InputBorder.none,
+            hintText: hint,
+            hintStyle: const TextStyle(color: Color(0xFF999999)),
+          ),
         ),
-      ),
-    );
-  }
+      );
+
+  Widget _radio(String label) => RadioListTile(
+        value: label,
+        groupValue: repeatOption,
+        title: Text(label),
+        onChanged: (v) => setState(() => repeatOption = v.toString()),
+      );
+
+  Widget _dropdown(
+          {required String value,
+          required List<String> items,
+          required Function(String?) onChanged}) =>
+      Container(
+        height: 50,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE6E6E6),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton(
+            value: value,
+            items: items
+                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                .toList(),
+            onChanged: onChanged,
+          ),
+        ),
+      );
 }

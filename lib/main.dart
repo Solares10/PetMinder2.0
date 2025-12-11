@@ -15,26 +15,33 @@ import 'screens/pet_summary_screen.dart';
 import 'screens/daily_tasks_screen.dart';
 import 'screens/create_task_screen.dart';
 import 'screens/edit_task_screen.dart';
-import 'screens/calendar_filter_screen.dart';
-import 'screens/calendar_minimized_screen.dart';
+
+// CALENDAR SCREEN (⭐ NEW WORKING SCREEN)
+import 'screens/calendar_screen.dart';
 
 // PET SCREENS
 import 'screens/pets_home_screen.dart';
 import 'screens/pet_detail_screen.dart';
 import 'screens/edit_pet_screen.dart';
 
-// SETTINGS
+// SETTINGS SCREEN
 import 'screens/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    await Firebase.initializeApp();
-  } catch (e, st) {
-    debugPrint('FIREBASE INIT ERROR: $e');
-    debugPrintStack(stackTrace: st);
-  }
+  // ⭐ IMPORTANT: Firebase must be initialized with explicit options on Web
+  await Firebase.initializeApp(
+    options: const FirebaseOptions(
+      apiKey: "AIzaSyBSRCykcI3V4SB2ZYY8cBHezY7wUJLDlE4",
+      authDomain: "petminder-app.firebaseapp.com",
+      projectId: "petminder-app",
+      storageBucket: "petminder-app.firebasestorage.app",
+      messagingSenderId: "210515344792",
+      appId: "1:210515344792:web:85e3b08b25ac610fa2ffed",
+      measurementId: "G-MVBQZJE8FV",
+    ),
+  );
 
   runApp(const PetMinderApp());
 }
@@ -52,7 +59,7 @@ class PetMinderApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.white,
       ),
 
-      // START OF APP
+      // ⭐ STARTING SCREEN
       initialRoute: "/splash",
 
       routes: {
@@ -70,8 +77,9 @@ class PetMinderApp extends StatelessWidget {
         "/tasks": (context) => const DailyTasksScreen(),
         "/createTask": (context) => const CreateTaskScreen(),
         "/editTask": (context) => const EditTaskScreen(),
-        "/calendarFilter": (context) => const CalendarFilterScreen(),
-        "/calendarMini": (context) => const CalendarMinimizedScreen(),
+
+        // ---------------- CALENDAR ----------------
+        "/calendar": (context) => const CalendarScreen(),
 
         // ---------------- PETS ----------------
         "/pets": (context) => const PetsHomeScreen(),
@@ -84,4 +92,3 @@ class PetMinderApp extends StatelessWidget {
     );
   }
 }
-
