@@ -39,7 +39,7 @@ void main() async {
       apiKey: "AIzaSyBSRCykcI3V4SB2ZYY8cBHezY7wUJLDlE4",
       authDomain: "petminder-app.firebaseapp.com",
       projectId: "petminder-app",
-      storageBucket: "petminder-app.appspot.com", // ⭐ FIXED BUCKET NAME
+      storageBucket: "petminder-app.appspot.com", // ⭐ CORRECT BUCKET
       messagingSenderId: "210515344792",
       appId: "1:210515344792:web:85e3b08b25ac610fa2ffed",
       measurementId: "G-MVBQZJE8FV",
@@ -63,9 +63,10 @@ class PetMinderApp extends StatelessWidget {
         scaffoldBackgroundColor: Colors.white,
       ),
 
-      // FIRST SCREEN
+      // ⭐ STARTING SCREEN
       initialRoute: "/splash",
 
+      // ⭐ APPLICATION ROUTES
       routes: {
         // ---------------- AUTH ----------------
         "/splash": (context) => const SplashScreen(),
