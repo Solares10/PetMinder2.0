@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -14,12 +17,28 @@ class _SignInScreenState extends State<SignInScreen> {
 
   Future<void> signIn() async {
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
 
-      Navigator.pushReplacementNamed(context, "/petinfo1");
+      final uid = cred.user!.uid;
+
+      final petsSnapshot = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(uid)
+          .collection("pets")
+          .limit(1) // we only care if there's at least 1
+          .get();
+      final hasPet = petsSnapshot.docs.isNotEmpty;
+
+      if (hasPet) {
+        // Returning user → skip onboarding
+        Navigator.pushReplacementNamed(context, "/tasks"); // or "/pets"
+      } else {
+        // First-time user → go to pet onboarding
+        Navigator.pushReplacementNamed(context, "/petinfo1");
+      }
     } on FirebaseAuthException catch (e) {
       String errorMessage = "Login failed";
 
