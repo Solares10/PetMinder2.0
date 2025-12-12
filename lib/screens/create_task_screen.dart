@@ -42,10 +42,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     setState(() {
       pets = snap.docs
           .map((d) => {
-                "id": d.id,
-                "name": d["petName"],
-                "imageUrl": d["imageUrl"],
-              })
+        "id": d.id,
+        "name": d["petName"],
+        "imageUrl": d["imageUrl"],
+      })
           .toList();
     });
   }
@@ -92,8 +92,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final formattedTime =
-        selectedTime!.format(context); // e.g. "8:30 PM"
+    final formattedTime = selectedTime!.format(context); // e.g. "8:30 PM"
 
     await FirebaseFirestore.instance
         .collection("users")
@@ -134,61 +133,67 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          Container(
-            height: 100,
-            width: double.infinity,
-            alignment: Alignment.center,
-            color: const Color(0xFF0F52BA),
-            child: const Text(
-              "CREATE TASK",
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold),
-            ),
+
+      appBar: AppBar(
+        backgroundColor: Colors.blue.shade800,
+        automaticallyImplyLeading: false,
+        centerTitle: true,
+        title: const Text(
+          "CREATE TASK",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
           ),
-
-          // MAIN CONTENT
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _label("Task Name"),
-                  _input(nameController, "Task title..."),
-
-                  const SizedBox(height: 20),
-                  _label("Description"),
-                  _input(descController, "Task details..."),
-
-                  const SizedBox(height: 20),
-                  _label("Select Pet"),
-
-                  const SizedBox(height: 10),
-                  _petSelector(),
-
-                  const SizedBox(height: 20),
-                  _label("Date"),
-                  _dateButton(),
-
-                  const SizedBox(height: 20),
-                  _label("Time"),
-                  _timeButton(),
-
-                  const SizedBox(height: 20),
-                  _label("Importance"),
-                  _importanceDropdown(),
-
-                  const SizedBox(height: 30),
-                  _saveButton(),
-                ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text(
+              "Cancel",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
               ),
             ),
-          ),
+          )
         ],
+      ),
+
+
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _label("Task Name"),
+            _input(nameController, "Task title..."),
+
+            const SizedBox(height: 20),
+            _label("Description"),
+            _input(descController, "Task details..."),
+
+            const SizedBox(height: 20),
+            _label("Select Pet"),
+            const SizedBox(height: 10),
+            _petSelector(),
+
+            const SizedBox(height: 20),
+            _label("Date"),
+            _dateButton(),
+
+            const SizedBox(height: 20),
+            _label("Time"),
+            _timeButton(),
+
+            const SizedBox(height: 20),
+            _label("Importance"),
+            _importanceDropdown(),
+
+            const SizedBox(height: 30),
+            _saveButton(),
+          ],
+        ),
       ),
     );
   }
@@ -196,30 +201,40 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   // ---------------- COMPONENTS ----------------
 
   Widget _label(String text) {
-    return Text(text,
-        style: const TextStyle(
-            fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black));
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      ),
+    );
   }
 
   Widget _input(TextEditingController c, String hint) {
     return Container(
       height: 50,
       decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          color: const Color(0xFFEDEDED)),
+        borderRadius: BorderRadius.circular(10),
+        color: const Color(0xFFEDEDED),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: TextField(
         controller: c,
         decoration: InputDecoration(
-            border: InputBorder.none, hintText: hint),
+          border: InputBorder.none,
+          hintText: hint,
+        ),
       ),
     );
   }
 
   Widget _petSelector() {
     if (pets.isEmpty) {
-      return const Text("No pets found. Add a pet first.",
-          style: TextStyle(color: Colors.black54));
+      return const Text(
+        "No pets found. Add a pet first.",
+        style: TextStyle(color: Colors.black54),
+      );
     }
 
     return SizedBox(
@@ -244,14 +259,16 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: active ? Colors.orange : Colors.transparent,
-                    width: 3),
+                  color: active ? Colors.orange : Colors.transparent,
+                  width: 3,
+                ),
                 color: Colors.white,
                 boxShadow: const [
                   BoxShadow(
-                      blurRadius: 4,
-                      color: Colors.black12,
-                      offset: Offset(0, 3))
+                    blurRadius: 4,
+                    color: Colors.black12,
+                    offset: Offset(0, 3),
+                  )
                 ],
               ),
               child: Column(
@@ -259,7 +276,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(12)),
+                        top: Radius.circular(12),
+                      ),
                       child: Image.network(
                         pet["imageUrl"] ?? "",
                         width: double.infinity,
@@ -277,7 +295,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                     child: Text(
                       pet["name"],
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -294,9 +314,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     return ElevatedButton(
       onPressed: pickDate,
       style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFEDEDED),
-          elevation: 0,
-          foregroundColor: Colors.black),
+        backgroundColor: const Color(0xFFEDEDED),
+        elevation: 0,
+        foregroundColor: Colors.black,
+      ),
       child: Text(
         selectedDate == null
             ? "Pick Date"
@@ -309,9 +330,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     return ElevatedButton(
       onPressed: pickTime,
       style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFEDEDED),
-          elevation: 0,
-          foregroundColor: Colors.black),
+        backgroundColor: const Color(0xFFEDEDED),
+        elevation: 0,
+        foregroundColor: Colors.black,
+      ),
       child: Text(
         selectedTime == null ? "Pick Time" : selectedTime!.format(context),
       ),
@@ -343,8 +365,13 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       height: 55,
       child: ElevatedButton(
         onPressed: saveTask,
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-        child: const Text("Save Task", style: TextStyle(color: Colors.white)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue.shade800,
+        ),
+        child: const Text(
+          "Save Task",
+          style: TextStyle(color: Colors.white),
+        ),
       ),
     );
   }
