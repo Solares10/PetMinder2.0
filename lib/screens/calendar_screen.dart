@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 import 'package:petminder_flutter/widgets/bottom_nav.dart';
-import 'package:petminder_flutter/screens/filter_screen.dart'; // For AppFilters
+import 'package:petminder_flutter/screens/filter_screen.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -17,28 +17,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime focusedMonth = DateTime.now();
   DateTime selectedDay = DateTime.now();
 
+  // key: "yyyy-MM-dd" → list of tasks
   Map<String, List<Map<String, dynamic>>> tasksByDay = {};
-
-  // Adding controller
-  late DraggableScrollableController _sheetController;
-  double _sheetSize = 0.18;
 
   @override
   void initState() {
     super.initState();
-    _sheetController = DraggableScrollableController();
-    _sheetController.addListener(() {
-      setState(() {
-        _sheetSize = _sheetController.size;
-      });
-    });
     loadMonthTasks();
-  }
-
-  @override
-  void dispose() {
-    _sheetController.dispose();
-    super.dispose();
   }
 
   // LOAD ALL TASKS FOR THE MONTH
@@ -85,32 +70,36 @@ class _CalendarScreenState extends State<CalendarScreen> {
     setState(() => tasksByDay = map);
   }
 
-  // Widget: Mini Week Bar
+  // ---------------- MINI 3-WEEK CALENDAR ----------------
   Widget _miniThreeWeekCalendar() {
     // Start of selected week (Sunday)
     final startOfCurrentWeek = selectedDay.subtract(
       Duration(days: selectedDay.weekday % 7),
     );
 
-    // Previous week
-    final startOfPrevWeek = startOfCurrentWeek.subtract(const Duration(days: 7));
+    final startOfPrevWeek =
+    startOfCurrentWeek.subtract(const Duration(days: 7));
+    final startOfNextWeek =
+    startOfCurrentWeek.add(const Duration(days: 7));
 
-    // Next week
-    final startOfNextWeek = startOfCurrentWeek.add(const Duration(days: 7));
+    // Weekday labels for the header row (Sun..Sat) based on current week
+    final headerDays =
+    List.generate(7, (i) => startOfCurrentWeek.add(Duration(days: i)));
 
-    // Helper: builds ONE week row
+    // Helper: builds ONE week row (numbers + dots only)
     Widget buildWeekRow(DateTime start) {
       final days = List.generate(7, (i) => start.add(Duration(days: i)));
 
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: days.map((date) {
             final key = DateFormat("yyyy-MM-dd").format(date);
-            final isSelected = DateFormat("yyyy-MM-dd").format(selectedDay) == key;
+            final isSelected =
+                DateFormat("yyyy-MM-dd").format(selectedDay) == key;
 
-            // Dot color logic (reuse exactly what your full grid uses)
+            // Dot color logic (reuse full grid logic)
             Color? dotColor;
             if (tasksByDay.containsKey(key)) {
               final tasks = tasksByDay[key]!;
@@ -129,34 +118,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
             return GestureDetector(
               onTap: () {
+                final previousFocused = focusedMonth;
+
                 setState(() {
                   selectedDay = date;
 
-                  // If the tapped date is in a different month, update focusedMonth
-                  if (date.month != focusedMonth.month || date.year != focusedMonth.year) {
+                  if (date.month != focusedMonth.month ||
+                      date.year != focusedMonth.year) {
                     focusedMonth = DateTime(date.year, date.month);
                   }
                 });
 
-                // Reload tasks for the newly focused month
-                loadMonthTasks();
+                if (focusedMonth != previousFocused) {
+                  loadMonthTasks();
+                }
               },
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Weekday label (e.g., Mon, Tue)
-                  Text(
-                    DateFormat.E().format(date),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isSelected ? Colors.blue : Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-
                   // Day circle
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 28,
+                    height: 28,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -167,7 +150,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     child: Text(
                       "${date.day}",
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                         color: isSelected ? Colors.white : Colors.black,
                       ),
@@ -177,9 +160,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   // Dot (if tasks exist)
                   if (dotColor != null)
                     Container(
-                      width: 6,
-                      height: 6,
-                      margin: const EdgeInsets.only(top: 4),
+                      width: 4,
+                      height: 4,
+                      margin: const EdgeInsets.only(top: 2),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: dotColor,
@@ -193,11 +176,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
       );
     }
 
-    // Stack prev, current, next week vertically
+    // Full mini calendar: weekday header + 3 week rows
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // Weekday header row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: headerDays.asMap().entries.map((entry) {
+              final index = entry.key;
+              final date = entry.value;
+
+              // Highlight the column that matches the selected day-of-week
+              final isSelectedDow =
+                  (selectedDay.weekday % 7) == (date.weekday % 7);
+
+              return SizedBox(
+                width: 28,
+                child: Center(
+                  child: Text(
+                    DateFormat.E().format(date),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight:
+                      isSelectedDow ? FontWeight.bold : FontWeight.normal,
+                      color: isSelectedDow ? Colors.blue : Colors.black54,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 4),
+
           buildWeekRow(startOfPrevWeek),
           buildWeekRow(startOfCurrentWeek),
           buildWeekRow(startOfNextWeek),
@@ -207,7 +220,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
 
-  // --- UI STARTS HERE ---
+  // ---------------- UI ----------------
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -221,24 +235,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
         child: const Icon(Icons.add, color: Colors.white),
       ),
 
-      body: Stack(
+      body: Column(
         children: [
-          Column(
-            children: [
-              _header(),
-              _monthSelector(),
-              AnimatedCrossFade(
-                duration: const Duration(milliseconds: 200),
-                crossFadeState: _sheetSize <= 0.22
-                    ? CrossFadeState.showFirst
-                    : CrossFadeState.showSecond,
-                firstChild: _calendarGrid(),
-                secondChild: _miniThreeWeekCalendar(),
-              ),
-            ],
-          ),
+          // FIXED HEADER
+          _header(),
 
-          _taskSlideUpPanel(),
+          // SCROLLABLE AREA (month selector + calendar + tasks)
+          Expanded(
+            child: NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _CalendarSliverDelegate(
+                      minHeight: 200,
+                      maxHeight: 480,
+                      buildMonthSelector: (context) => _monthSelector(),
+                      buildFull: (context) => _calendarGrid(),
+                      buildMini: (context) => _miniThreeWeekCalendar(),
+                    ),
+                  ),
+
+                ];
+              },
+              body: _tasksListBody(),
+            ),
+          ),
         ],
       ),
     );
@@ -254,7 +276,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: const Text(
         "CALENDAR",
         style: TextStyle(
-            color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+          color: Colors.white,
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -267,27 +292,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
-              child: const Icon(Icons.chevron_left, size: 32),
-              onTap: () {
-                setState(() {
-                  focusedMonth =
-                      DateTime(focusedMonth.year, focusedMonth.month - 1);
-                });
-                loadMonthTasks();
-              }),
+            child: const Icon(Icons.chevron_left, size: 32),
+            onTap: () {
+              setState(() {
+                focusedMonth =
+                    DateTime(focusedMonth.year, focusedMonth.month - 1);
+              });
+              loadMonthTasks();
+            },
+          ),
           Text(
             DateFormat("MMMM yyyy").format(focusedMonth),
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           GestureDetector(
-              child: const Icon(Icons.chevron_right, size: 32),
-              onTap: () {
-                setState(() {
-                  focusedMonth =
-                      DateTime(focusedMonth.year, focusedMonth.month + 1);
-                });
-                loadMonthTasks();
-              }),
+            child: const Icon(Icons.chevron_right, size: 32),
+            onTap: () {
+              setState(() {
+                focusedMonth =
+                    DateTime(focusedMonth.year, focusedMonth.month + 1);
+              });
+              loadMonthTasks();
+            },
+          ),
         ],
       ),
     );
@@ -309,8 +339,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     // DAYS OF MONTH
     for (int day = 1; day <= totalDays; day++) {
-      DateTime date =
-          DateTime(focusedMonth.year, focusedMonth.month, day);
+      DateTime date = DateTime(focusedMonth.year, focusedMonth.month, day);
       String key = DateFormat("yyyy-MM-dd").format(date);
 
       bool isSelected =
@@ -322,16 +351,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
       if (tasksByDay.containsKey(key)) {
         final tasks = tasksByDay[key]!;
 
-        bool hasHigh =
-            tasks.any((t) => t["importance"] == "High");
-        bool hasNormal =
-            tasks.any((t) => t["importance"] == "Normal");
-        bool hasLow =
-            tasks.any((t) => t["importance"] == "Low");
+        bool hasHigh = tasks.any((t) => t["importance"] == "High");
+        bool hasNormal = tasks.any((t) => t["importance"] == "Normal");
+        bool hasLow = tasks.any((t) => t["importance"] == "Low");
 
-        if (hasHigh) dotColor = Colors.redAccent;
-        else if (hasNormal) dotColor = Colors.orangeAccent;
-        else if (hasLow) dotColor = Colors.lightBlueAccent;
+        if (hasHigh) {
+          dotColor = Colors.redAccent;
+        } else if (hasNormal) {
+          dotColor = Colors.orangeAccent;
+        } else if (hasLow) {
+          dotColor = Colors.lightBlueAccent;
+        }
       }
 
       cells.add(
@@ -357,7 +387,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   ),
                 ),
               ),
-
               if (dotColor != null)
                 Container(
                   width: 7,
@@ -384,82 +413,73 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  // SLIDE-UP TASK PANEL (COLLAPSED: 2 tasks)
-  Widget _taskSlideUpPanel() {
+  // TASK LIST BODY (SCROLLS AND COLLAPSES HEADER)
+  // TASK LIST BODY (SCROLLS AND COLLAPSES HEADER)
+  Widget _tasksListBody() {
     final key = DateFormat("yyyy-MM-dd").format(selectedDay);
     final tasks = tasksByDay[key] ?? [];
 
-    return DraggableScrollableSheet(
-      controller: _sheetController,
-      initialChildSize: 0.18,
-      minChildSize: 0.18,
-      maxChildSize: 0.75,
-      builder: (context, scroll) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius:
-                BorderRadius.vertical(top: Radius.circular(20)),
-            boxShadow: [
-              BoxShadow(
-                  blurRadius: 10,
-                  color: Colors.black26,
-                  offset: Offset(0, -2))
-            ],
+    // EMPTY STATE (no scrolling, just message)
+    if (tasks.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            "No tasks for ${DateFormat("MMMM d").format(selectedDay)}.\nTap + to create one!",
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, color: Colors.black54),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Panel handle
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 5,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade400,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
+        ),
+      );
+    }
+
+    // If there are only a few tasks, don't let the inner list scroll.
+    final bool fewTasks = tasks.length <= 2; // bump to 3 if you want
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        24,  // <- constant top padding now
+        16,
+        90,
+      ),
+      physics: fewTasks
+          ? const NeverScrollableScrollPhysics()
+          : const BouncingScrollPhysics(),
+      itemCount: tasks.length + 1,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              DateFormat("MMMM d").format(selectedDay),
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
+            ),
+          );
+        }
 
-              Text(
-                DateFormat("MMMM d").format(selectedDay),
-                style: const TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.bold),
-              ),
+        final t = tasks[index - 1];
 
-              const SizedBox(height: 12),
-
-              Expanded(
-                child: ListView.builder(
-                  controller: scroll,
-                  itemCount: tasks.length.clamp(0, 50),
-                  itemBuilder: (context, i) {
-                    final t = tasks[i];
-
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.pushNamed(
-                          context,
-                          "/editTask",
-                          arguments: t,
-                        ).then((_) => loadMonthTasks());
-                      },
-                      child: _taskTile(t),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+        return GestureDetector(
+          onTap: () {
+            Navigator.pushNamed(
+              context,
+              "/editTask",
+              arguments: t,
+            ).then((_) => loadMonthTasks());
+          },
+          child: _taskTile(t),
         );
       },
     );
   }
 
-  // TASK TILE FOR SLIDE-UP PANEL
+
+
+  // TASK TILE
   Widget _taskTile(Map<String, dynamic> t) {
     String title = t["name"];
     String time = t["time"];
@@ -506,7 +526,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Text(
                   title,
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -530,4 +552,49 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+}
+
+// ---------------- SLIVER DELEGATE FOR COLLAPSING CALENDAR ----------------
+
+class _CalendarSliverDelegate extends SliverPersistentHeaderDelegate {
+  final double minHeight;
+  final double maxHeight;
+  final Widget Function(BuildContext) buildMonthSelector;
+  final Widget Function(BuildContext) buildFull;
+  final Widget Function(BuildContext) buildMini;
+
+  _CalendarSliverDelegate({
+    required this.minHeight,
+    required this.maxHeight,
+    required this.buildMonthSelector,
+    required this.buildFull,
+    required this.buildMini,
+  });
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final t = (shrinkOffset / (maxExtent - minExtent)).clamp(0.0, 1.0);
+
+    final calendar = t < 0.5 ? buildFull(context) : buildMini(context);
+
+    return Container(
+      color: Colors.white,
+      child: Column(
+        children: [
+          buildMonthSelector(context),
+          Expanded(child: calendar),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_CalendarSliverDelegate oldDelegate) => true;
 }
