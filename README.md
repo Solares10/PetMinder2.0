@@ -20,7 +20,7 @@ PetMinder is an Android app that helps you keep track of all your pet care needs
 ---
 
 ## 🧱 Tech Stack
-- **Language:** Dart (Flutter0
+- **Language:** Dart (Flutter)
 - **UI:** Figma, Flutter Widgets, Custom layouts (Constraint-based, AnimatedCrossFade, Slivers)
 Figma (for design mockups)
 - **Data Storage:** Firebase
