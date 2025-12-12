@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:petminder_flutter/helpers/image_upload.dart';
 
 class PetSummaryScreen extends StatefulWidget {
@@ -13,6 +12,7 @@ class PetSummaryScreen extends StatefulWidget {
 
 class _PetSummaryScreenState extends State<PetSummaryScreen> {
   String? petImageUrl;
+  bool isUploading = false;
 
   late String petName;
   late String species;
@@ -26,7 +26,8 @@ class _PetSummaryScreenState extends State<PetSummaryScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final data = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final data =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
 
     petName = data["petName"];
     species = data["species"];
@@ -38,15 +39,26 @@ class _PetSummaryScreenState extends State<PetSummaryScreen> {
     vaccines = data["vaccines"];
   }
 
+  // ------------------- UPLOAD IMAGE -------------------
   Future<void> uploadPetImage() async {
+    setState(() => isUploading = true);
+
     final url = await pickAndUploadPetImage();
+
+    setState(() => isUploading = false);
+
     if (url != null) {
       setState(() {
         petImageUrl = url;
       });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Image upload failed. Try again.")),
+      );
     }
   }
 
+  // ------------------- SAVE PET DATA -------------------
   Future<void> savePet() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -64,7 +76,7 @@ class _PetSummaryScreenState extends State<PetSummaryScreen> {
       "weight": weight,
       "height": height,
       "vaccines": vaccines,
-      "imageUrl": petImageUrl,
+      "imageUrl": petImageUrl, // ⭐ saved from imgBB
       "createdAt": DateTime.now(),
     });
 
@@ -80,24 +92,38 @@ class _PetSummaryScreenState extends State<PetSummaryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // HEADER
             Row(
               children: [
-                Image.asset("assets/images/ic_pet_logo.png", width: 42, height: 42),
+                Image.asset("assets/images/ic_pet_logo.png",
+                    width: 42, height: 42),
                 const SizedBox(width: 8),
-                const Text("Pet Minder",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  "Pet Minder",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
 
             const SizedBox(height: 16),
 
-            Text("Welcome, $petName!",
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+            // WELCOME TEXT
+            Text(
+              "Welcome, $petName!",
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
 
-            // IMAGE PICKER BOX
             const SizedBox(height: 16),
+
+            // ------------------- IMAGE PICKER BOX -------------------
             GestureDetector(
-              onTap: uploadPetImage,
+              onTap: isUploading ? null : uploadPetImage,
               child: Container(
                 height: 200,
                 width: double.infinity,
@@ -105,29 +131,39 @@ class _PetSummaryScreenState extends State<PetSummaryScreen> {
                   color: const Color(0xFFF5F5F5),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: petImageUrl == null
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
-                          Icon(Icons.upload, size: 32),
-                          SizedBox(height: 8),
-                          Text("Upload Image",
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                        ],
+                child: isUploading
+                    ? const Center(
+                        child: CircularProgressIndicator(),
                       )
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          petImageUrl!,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
+                    : petImageUrl == null
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.upload, size: 32),
+                              SizedBox(height: 8),
+                              Text(
+                                "Upload Image",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          )
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              petImageUrl!,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // Summary card
+            // ------------------- SUMMARY CARD -------------------
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -137,9 +173,13 @@ class _PetSummaryScreenState extends State<PetSummaryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(petName,
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(
+                    petName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   _info("Birthday", birthday),
                   _info("Species", species),
@@ -154,13 +194,19 @@ class _PetSummaryScreenState extends State<PetSummaryScreen> {
 
             const SizedBox(height: 32),
 
+            // ------------------- FINISH BUTTON -------------------
             SizedBox(
               height: 55,
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: savePet,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F52BA)),
-                child: const Text("Finish", style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F52BA),
+                ),
+                child: const Text(
+                  "Finish",
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ),
           ],
@@ -172,8 +218,13 @@ class _PetSummaryScreenState extends State<PetSummaryScreen> {
   Widget _info(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text("$label: $value",
-          style: const TextStyle(color: Color(0xFF333333))),
+      child: Text(
+        "$label: $value",
+        style: const TextStyle(
+          color: Color(0xFF333333),
+          fontSize: 14,
+        ),
+      ),
     );
   }
 }

@@ -11,23 +11,26 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # ⭐ SYSTEM + FILE PICKER
+  # ⭐ SYSTEM + FILE PICKER (WEB SUPPORT)
   file_picker: ^8.0.0
+
+  # ⭐ HTTP CLIENT FOR imgBB UPLOADS
+  http: ^1.2.0
 
   # ⭐ FIREBASE DEPENDENCIES
   firebase_core: ^4.2.1
   firebase_auth: ^6.1.2
   cloud_firestore: ^6.1.0
-  firebase_storage: ^13.0.4
+  firebase_storage: ^13.0.4   # required only for other areas
 
   # UI LIBRARIES
   cupertino_icons: ^1.0.8
   flutter_svg: ^2.0.9
 
-  # IMAGE PICKER (MOBILE)
+  # ⭐ IMAGE PICKER (ANDROID / iOS ONLY)
   image_picker: ^1.0.7
 
-  # DATE FORMAT PACKAGE
+  # ⭐ DATE FORMAT PACKAGE
   intl: ^0.19.0
 
 dev_dependencies:
