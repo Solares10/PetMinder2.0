@@ -24,6 +24,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool notifDailyTasks = true;
   bool notifHealthUpdates = false;
 
+  bool isEditing = false;
   @override
   void initState() {
     super.initState();
@@ -91,7 +92,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      bottomNavigationBar: const BottomNav(activeIndex: 2),
+      bottomNavigationBar: const BottomNav(activeIndex: 3),
       body: Column(
         children: [
           // ================= TOP BAR =================
@@ -118,7 +119,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   // PROFILE IMAGE UPLOAD FRAME
                   GestureDetector(
-                    onTap: pickProfileImage,
+                    onTap: isEditing ? pickProfileImage : null,
                     child: Container(
                       width: 150,
                       height: 150,
@@ -169,15 +170,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 child: Text(
                                   fullName,
                                   style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold),
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                              const Icon(Icons.edit, size: 24),
+                              IconButton(
+                                icon: Icon(isEditing ? Icons.check : Icons.edit, size: 24),
+                                onPressed: () {
+                                  setState(() {
+                                    isEditing = !isEditing;
+                                  });
+                                  // Optional: auto-save when leaving edit mode
+                                  // if (!isEditing) saveProfile();
+                                },
+                              ),
                             ],
                           ),
 
-                          const SizedBox(height: 20),
 
                           // BIRTHDAY
                           const Text(
@@ -210,7 +220,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 fontSize: 20, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 6),
-                          _input(emailController, "Email"),
+                          _input(emailController, "Email", enabled: isEditing),
 
                           const SizedBox(height: 20),
 
@@ -224,12 +234,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           _switchRow(
                             "Daily Tasks",
                             notifDailyTasks,
-                            (v) => setState(() => notifDailyTasks = v),
+                                (v) => setState(() => notifDailyTasks = v),
+                            enabled: isEditing,
                           ),
                           _switchRow(
                             "Health Updates",
                             notifHealthUpdates,
-                            (v) => setState(() => notifHealthUpdates = v),
+                                (v) => setState(() => notifHealthUpdates = v),
+                            enabled: isEditing,
                           ),
 
                           const SizedBox(height: 20),
@@ -268,8 +280,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // INPUT FIELD
-  Widget _input(TextEditingController c, String hint) {
+// INPUT FIELD
+  Widget _input(
+      TextEditingController c,
+      String hint, {
+        bool enabled = true,   // <--- declare it here with a default
+      }) {
     return Container(
       height: 50,
       margin: const EdgeInsets.only(top: 6),
@@ -280,6 +296,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       child: TextField(
         controller: c,
+        enabled: enabled,
+        readOnly: !enabled,
         decoration: InputDecoration(
           border: InputBorder.none,
           hintText: hint,
@@ -287,6 +305,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
 
   // CHIP
   Widget _chip(String text) {
@@ -301,21 +320,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // SWITCH ROW
-  Widget _switchRow(String label, bool value, Function(bool) onChanged) {
+  Widget _switchRow(
+      String label,
+      bool value,
+      Function(bool) onChanged, {
+        bool enabled = true,
+      }) {
     return Row(
       children: [
         Expanded(
-          child: Text(label,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ),
         Switch(
           value: value,
-          onChanged: onChanged,
+          onChanged: enabled ? onChanged : null, // disable when not editing
         ),
       ],
     );
   }
+
 
   // BOTTOM NAV
   Widget _bottomNav() {
