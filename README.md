@@ -1,20 +1,32 @@
-<<<<<<< HEAD
-# PetMinder2.0
-=======
-# petminder_flutter
+# PetMinder
 
-A new Flutter project.
+PetMinder is an Android app that helps you keep track of all your pet care needs — from feeding and walks to grooming, medications, and reminders for daily routines.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## ✨ Features
+- 🕒 **Daily Tasks:** Feeding, medication, walks, playtime, and more
+- 🔔 **Reminders & Notifications:** Never miss a feeding or medication time
+- 🧼 **Grooming Log:** Track baths, nail trims, and grooming sessions
+- 💊 **Medication Tracking:** Dose, frequency, and notes
+- 🐶 **Multiple Pets:** Profiles for each pet with name, breed, and photo
+- 📅 **History & Notes:** View completed tasks and logs
+- 🌙 **Optional:** Dark mode, widgets, offline support
 
-A few resources to get you started if this is your first Flutter project:
+---
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## 📸 Screenshots
+> Replace with your own images later.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
->>>>>>> 290bdb3 (Initial upload of Flutter PetMinder app)
+---
+
+## 🧱 Tech Stack
+- **Language:** dart
+- **UI:** Figma
+- **Architecture:**
+- **Data Storage:**
+- **Dependency Injection:**
+- **Navigation:**
+- **Async:** 
+- **Other:** W
+

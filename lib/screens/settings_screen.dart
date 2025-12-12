@@ -47,12 +47,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final snap = await FirebaseFirestore.instance
-        .collection("users")
-        .doc(user.uid)
-        .get();
+    final userRef =
+    FirebaseFirestore.instance.collection("users").doc(user.uid);
 
+    // Get user profile data
+    final snap = await userRef.get();
     final data = snap.data() ?? {};
+
+    // Get pets from subcollection
+    final petsSnap = await userRef.collection("pets").get();
+    final petNameList = petsSnap.docs
+        .map((d) {
+      final petData = d.data();
+      return (petData["petName"] ?? "") as String;
+    })
+        .where((name) => name.isNotEmpty)
+        .toList();
 
     setState(() {
       fullName = user.displayName ?? "";
@@ -62,9 +72,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       notesController.text = data["notes"] ?? "";
       notifDailyTasks = data["notifDailyTasks"] ?? true;
       notifHealthUpdates = data["notifHealthUpdates"] ?? false;
-      petNames = List<String>.from(data["pets"] ?? []);
+
+      // Use names from the pets subcollection
+      petNames = petNameList;
     });
   }
+
 
   // ---------------- IMAGE UPLOAD USING imgBB ----------------
   Future<void> pickProfileImage() async {
@@ -97,7 +110,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       "notes": notesController.text.trim(),
       "notifDailyTasks": notifDailyTasks,
       "notifHealthUpdates": notifHealthUpdates,
-      "pets": petNames,
       "profileImage": profileImageUrl,
     }, SetOptions(merge: true));
 
@@ -209,9 +221,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
 
                           const SizedBox(height: 10),
-
-                          _section("Birthday"),
-                          _chip(birthday ?? "Unknown"),
 
                           const SizedBox(height: 15),
 
