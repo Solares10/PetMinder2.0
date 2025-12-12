@@ -19,8 +19,7 @@ class CalendarMinimizedScreen extends StatelessWidget {
       ),
 
       // Bottom Navigation Bar
-bottomNavigationBar: const BottomNav(activeIndex: 1),
-,
+      bottomNavigationBar: const BottomNav(activeIndex: 1),
 
 
       body: Column(

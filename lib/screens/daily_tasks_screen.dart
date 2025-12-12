@@ -45,6 +45,17 @@ class DailyTasksScreen extends StatelessWidget {
                   .orderBy("time")
                   .snapshots(),
               builder: (context, snapshot) {
+                // See exact Firestore message in the console
+                if (snapshot.hasError) {
+                  debugPrint('DailyTasks error: ${snapshot.error}');
+                  return Center(
+                    child: Text(
+                      'Error loading tasks.\n${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+
                 if (snapshot.connectionState == ConnectionState.waiting ||
                     !snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());

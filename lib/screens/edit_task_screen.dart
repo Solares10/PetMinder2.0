@@ -45,11 +45,23 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     _loadPets();
   }
 
-  // Convert "8:30 PM" → TimeOfDay
-  TimeOfDay _parseTime(String timeString) {
-    final format = DateFormat.jm();
-    final dt = format.parse(timeString);
-    return TimeOfDay.fromDateTime(dt);
+  // Clean weird unicode spaces (Chrome sometimes inserts \u202F)
+  String _cleanTime(String t) =>
+      t.replaceAll(RegExp(r"\u202F|\u00A0|\s+"), " ").trim();
+
+  // Convert "8:30 PM" → TimeOfDay safely
+  TimeOfDay _parseTime(dynamic timeValue) {
+    final raw = (timeValue ?? "").toString();
+    final cleaned = _cleanTime(raw);
+
+    try {
+      final dt = DateFormat.jm().parse(cleaned); // e.g. "8:00 AM"
+      return TimeOfDay.fromDateTime(dt);
+    } catch (e) {
+      // Fallback so the screen doesn't crash if something is malformed
+      debugPrint('EditTask: failed to parse time "$raw" (cleaned "$cleaned"): $e');
+      return TimeOfDay.now();
+    }
   }
 
   Future<void> _loadPets() async {

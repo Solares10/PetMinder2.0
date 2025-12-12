@@ -19,10 +19,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Map<String, List<Map<String, dynamic>>> tasksByDay = {};
 
+  // Adding controller
+  late DraggableScrollableController _sheetController;
+  double _sheetSize = 0.18;
+
   @override
   void initState() {
     super.initState();
+    _sheetController = DraggableScrollableController();
+    _sheetController.addListener(() {
+      setState(() {
+        _sheetSize = _sheetController.size;
+      });
+    });
     loadMonthTasks();
+  }
+
+  @override
+  void dispose() {
+    _sheetController.dispose();
+    super.dispose();
   }
 
   // LOAD ALL TASKS FOR THE MONTH
@@ -69,6 +85,128 @@ class _CalendarScreenState extends State<CalendarScreen> {
     setState(() => tasksByDay = map);
   }
 
+  // Widget: Mini Week Bar
+  Widget _miniThreeWeekCalendar() {
+    // Start of selected week (Sunday)
+    final startOfCurrentWeek = selectedDay.subtract(
+      Duration(days: selectedDay.weekday % 7),
+    );
+
+    // Previous week
+    final startOfPrevWeek = startOfCurrentWeek.subtract(const Duration(days: 7));
+
+    // Next week
+    final startOfNextWeek = startOfCurrentWeek.add(const Duration(days: 7));
+
+    // Helper: builds ONE week row
+    Widget buildWeekRow(DateTime start) {
+      final days = List.generate(7, (i) => start.add(Duration(days: i)));
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: days.map((date) {
+            final key = DateFormat("yyyy-MM-dd").format(date);
+            final isSelected = DateFormat("yyyy-MM-dd").format(selectedDay) == key;
+
+            // Dot color logic (reuse exactly what your full grid uses)
+            Color? dotColor;
+            if (tasksByDay.containsKey(key)) {
+              final tasks = tasksByDay[key]!;
+              bool hasHigh = tasks.any((t) => t["importance"] == "High");
+              bool hasNormal = tasks.any((t) => t["importance"] == "Normal");
+              bool hasLow = tasks.any((t) => t["importance"] == "Low");
+
+              if (hasHigh) {
+                dotColor = Colors.redAccent;
+              } else if (hasNormal) {
+                dotColor = Colors.orangeAccent;
+              } else if (hasLow) {
+                dotColor = Colors.lightBlueAccent;
+              }
+            }
+
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  selectedDay = date;
+
+                  // If the tapped date is in a different month, update focusedMonth
+                  if (date.month != focusedMonth.month || date.year != focusedMonth.year) {
+                    focusedMonth = DateTime(date.year, date.month);
+                  }
+                });
+
+                // Reload tasks for the newly focused month
+                loadMonthTasks();
+              },
+              child: Column(
+                children: [
+                  // Weekday label (e.g., Mon, Tue)
+                  Text(
+                    DateFormat.E().format(date),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isSelected ? Colors.blue : Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Day circle
+                  Container(
+                    width: 36,
+                    height: 36,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isSelected
+                          ? const Color(0xFFFF8A65)
+                          : Colors.transparent,
+                    ),
+                    child: Text(
+                      "${date.day}",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : Colors.black,
+                      ),
+                    ),
+                  ),
+
+                  // Dot (if tasks exist)
+                  if (dotColor != null)
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: dotColor,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      );
+    }
+
+    // Stack prev, current, next week vertically
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(
+        children: [
+          buildWeekRow(startOfPrevWeek),
+          buildWeekRow(startOfCurrentWeek),
+          buildWeekRow(startOfNextWeek),
+        ],
+      ),
+    );
+  }
+
+
   // --- UI STARTS HERE ---
   @override
   Widget build(BuildContext context) {
@@ -89,7 +227,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
             children: [
               _header(),
               _monthSelector(),
-              _calendarGrid(),
+              AnimatedCrossFade(
+                duration: const Duration(milliseconds: 200),
+                crossFadeState: _sheetSize <= 0.22
+                    ? CrossFadeState.showFirst
+                    : CrossFadeState.showSecond,
+                firstChild: _calendarGrid(),
+                secondChild: _miniThreeWeekCalendar(),
+              ),
             ],
           ),
 
@@ -245,6 +390,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final tasks = tasksByDay[key] ?? [];
 
     return DraggableScrollableSheet(
+      controller: _sheetController,
       initialChildSize: 0.18,
       minChildSize: 0.18,
       maxChildSize: 0.75,
