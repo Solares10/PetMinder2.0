@@ -5,14 +5,11 @@ PetMinder is an Android app that helps you keep track of all your pet care needs
 ---
 
 ## ✨ Features
-- 🕒 **Daily Tasks:** Feeding, medication, walks, playtime, and more  
-- 🔔 **Reminders & Notifications:** Never miss a feeding or medication time  
+- 🕒 **Daily Tasks:** Feeding, medication, walks, playtime, and more   
 - 🧼 **Grooming Log:** Track baths, nail trims, and grooming sessions  
 - 💊 **Medication Tracking:** Dose, frequency, and notes  
 - 🐶 **Multiple Pets:** Profiles for each pet with name, breed, and photo  
 - 📅 **History & Notes:** View completed tasks and logs  
-- 🌙 **Optional:** Dark mode, widgets, offline support
-
 ---
 
 ## 📸 Demo
