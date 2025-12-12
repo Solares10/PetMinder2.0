@@ -3,9 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:petminder_flutter/widgets/bottom_nav.dart';
-import 'package:petminder_flutter/screens/filter_screen.dart';
 
-// CLEAN TIME FUNCTION (fixes Chrome’s hidden unicode spaces)
 String cleanTime(String t) =>
     t.replaceAll(RegExp(r"\u202F|\u00A0|\s+"), " ").trim();
 
@@ -24,15 +22,13 @@ class DailyTasksScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      bottomNavigationBar: const BottomNav(activeIndex: 0),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.pushNamed(context, "/createTask"),
         backgroundColor: Colors.black,
-        child: const Icon(Icons.add, color: Colors.white, size: 32),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
-      bottomNavigationBar: const BottomNav(activeIndex: 0),
-
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _header(),
           Expanded(
@@ -45,55 +41,28 @@ class DailyTasksScreen extends StatelessWidget {
                   .orderBy("time")
                   .snapshots(),
               builder: (context, snapshot) {
-                // See exact Firestore message in the console
                 if (snapshot.hasError) {
-                  debugPrint('DailyTasks error: ${snapshot.error}');
                   return Center(
-                    child: Text(
-                      'Error loading tasks.\n${snapshot.error}',
-                      textAlign: TextAlign.center,
-                    ),
+                    child: Text("Error: ${snapshot.error}"),
                   );
                 }
 
-                if (snapshot.connectionState == ConnectionState.waiting ||
-                    !snapshot.hasData) {
+                if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
                 final docs = snapshot.data!.docs;
 
-                // Apply filters
-                final filtered = docs.where((doc) {
-                  final t = doc.data();
-
-                  // Filter by pets
-                  if (AppFilters.petIds.isNotEmpty &&
-                      !AppFilters.petIds.contains(t["petId"])) {
-                    return false;
-                  }
-
-                  // Filter by importance
-                  if (AppFilters.importance.isNotEmpty &&
-                      !AppFilters.importance.contains(t["importance"])) {
-                    return false;
-                  }
-
-                  return true;
-                }).toList();
-
-                if (filtered.isEmpty) {
+                if (docs.isEmpty) {
                   return _emptyState();
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.only(top: 20),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, index) {
-                    final task = filtered[index].data();
-                    final id = filtered[index].id;
-
-                    return _taskTile(context, task, id);
+                  itemCount: docs.length,
+                  itemBuilder: (context, i) {
+                    final t = docs[i].data();
+                    final id = docs[i].id;
+                    return _taskTile(context, t, id);
                   },
                 );
               },
@@ -104,24 +73,18 @@ class DailyTasksScreen extends StatelessWidget {
     );
   }
 
-  // ---------------- HEADER ----------------
   Widget _header() {
-    String today = DateFormat('MMMM d').format(DateTime.now());
-
+    final today = DateFormat('MMMM d').format(DateTime.now());
     return Column(
       children: [
         Container(
           height: 100,
-          width: double.infinity,
-          color: const Color(0xFF0F52BA),
           alignment: Alignment.center,
+          color: const Color(0xFF0F52BA),
           child: const Text(
             "DAILY TASKS",
             style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
           ),
         ),
         Padding(
@@ -130,37 +93,31 @@ class DailyTasksScreen extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               today,
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
             ),
           ),
-        ),
+        )
       ],
     );
   }
 
-  // ---------------- EMPTY STATE ----------------
-  Widget _emptyState() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(20),
-        child: Text(
-          "No tasks yet.\nTap + to create a task!",
-          style: TextStyle(fontSize: 16, color: Colors.black54),
-          textAlign: TextAlign.center,
+  Widget _emptyState() => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Text(
+            "No tasks yet.\nTap + to create one!",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black54),
+          ),
         ),
-      ),
-    );
-  }
+      );
 
-  // ---------------- TASK TILE ----------------
   Widget _taskTile(BuildContext context, Map<String, dynamic> t, String id) {
-    String title = t["name"] ?? "Untitled";
-    String desc = t["description"] ?? "";
-    String time = cleanTime(t["time"] ?? "");
-    String? image = t["petImageUrl"];
+    final title = t["name"] ?? "Untitled";
+    final desc = t["description"] ?? "";
+    final petName = t["petName"] ?? "";
+    final image = t["petImageUrl"];
+    final time = cleanTime(t["time"] ?? "");
 
     Color dotColor = Colors.orangeAccent;
     switch (t["importance"]) {
@@ -168,35 +125,24 @@ class DailyTasksScreen extends StatelessWidget {
         dotColor = Colors.redAccent;
         break;
       case "Low":
-        dotColor = Colors.lightBlueAccent;
+        dotColor = Colors.blueAccent;
         break;
     }
 
     return GestureDetector(
       onTap: () {
-        Navigator.pushNamed(
-          context,
-          "/editTask",
-          arguments: {
-            "id": id,
-            ...t,
-          },
-        );
+        Navigator.pushNamed(context, "/editTask", arguments: {"id": id, ...t});
       },
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
               width: 70,
-              child: Text(
-                time,
-                style: const TextStyle(
-                    fontSize: 14, fontWeight: FontWeight.bold),
-              ),
+              child: Text(time,
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.bold)),
             ),
-
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(12),
@@ -205,8 +151,8 @@ class DailyTasksScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // PET IMAGE WITH FALLBACK
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: image == null
@@ -229,32 +175,24 @@ class DailyTasksScreen extends StatelessWidget {
                               ),
                             ),
                     ),
-
                     const SizedBox(width: 12),
-
-                    // TEXT
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          Text(title,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold)),
+                          Text(petName,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.black54)),
                           const SizedBox(height: 4),
-                          Text(
-                            desc,
-                            style: const TextStyle(
-                                fontSize: 14, color: Colors.black87),
-                          ),
+                          Text(desc,
+                              style: const TextStyle(
+                                  fontSize: 14, color: Colors.black87)),
                         ],
                       ),
                     ),
-
-                    // IMPORTANCE DOT
                     Container(
                       width: 12,
                       height: 12,
