@@ -1,9 +1,13 @@
-import 'dart:io';
+import 'dart:io' show File;
+import 'dart:typed_data'; // ⭐ REQUIRED FOR Uint8List
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
+// ⭐ USE imgBB upload instead of Firebase Storage
+import 'package:petminder_flutter/helpers/image_upload.dart';
 import 'package:petminder_flutter/widgets/bottom_nav.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -14,34 +18,45 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  File? profileImage;
+  // IMAGE DATA
+  String? profileImageUrl;
+  Uint8List? webImageBytes;
+  File? localImageFile;
+
+  // USER FIELDS
   final emailController = TextEditingController();
   final notesController = TextEditingController();
-  String? birthday;
+  String? birthday = "";
   String fullName = "";
   List<String> petNames = [];
 
+  // SETTINGS
   bool notifDailyTasks = true;
   bool notifHealthUpdates = false;
-
   bool isEditing = false;
+  bool isUploading = false;
+
   @override
   void initState() {
     super.initState();
     loadUserInfo();
   }
 
+  // ---------------- LOAD USER DATA ----------------
   Future<void> loadUserInfo() async {
     final user = FirebaseAuth.instance.currentUser;
-    final userDoc = await FirebaseFirestore.instance
+    if (user == null) return;
+
+    final snap = await FirebaseFirestore.instance
         .collection("users")
-        .doc(user!.uid)
+        .doc(user.uid)
         .get();
 
-    final data = userDoc.data() ?? {};
+    final data = snap.data() ?? {};
 
     setState(() {
       fullName = user.displayName ?? "";
+      profileImageUrl = data["profileImage"];
       birthday = data["birthday"] ?? "";
       emailController.text = user.email ?? "";
       notesController.text = data["notes"] ?? "";
@@ -51,36 +66,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  // ---------------- IMAGE UPLOAD USING imgBB ----------------
   Future<void> pickProfileImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (!isEditing) return;
 
-    if (picked != null) {
-      setState(() => profileImage = File(picked.path));
+    setState(() => isUploading = true);
+
+    final uploadedUrl = await pickAndUploadPetImage();
+
+    setState(() => isUploading = false);
+
+    if (uploadedUrl != null) {
+      setState(() {
+        profileImageUrl = uploadedUrl;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Failed to upload image. Try again.")),
+      );
     }
   }
 
+  // ---------------- SAVE PROFILE ----------------
   Future<void> saveProfile() async {
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
-    String? profileUrl;
-
-    // Upload profile image if changed
-    if (profileImage != null) {
-      final ref =
-          FirebaseStorage.instance.ref("users/${user!.uid}/profile.jpg");
-      await ref.putFile(profileImage!);
-      profileUrl = await ref.getDownloadURL();
-    }
-
-    // Save profile data to Firestore
-    await FirebaseFirestore.instance.collection("users").doc(user!.uid).set({
+    await FirebaseFirestore.instance.collection("users").doc(user.uid).set({
       "birthday": birthday,
       "notes": notesController.text.trim(),
       "notifDailyTasks": notifDailyTasks,
       "notifHealthUpdates": notifHealthUpdates,
       "pets": petNames,
-      "profileImage": profileUrl,
+      "profileImage": profileImageUrl,
     }, SetOptions(merge: true));
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -88,6 +106,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ---------------- BUILD UI ----------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -95,10 +114,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       bottomNavigationBar: const BottomNav(activeIndex: 3),
       body: Column(
         children: [
-          // ================= TOP BAR =================
+          // ---------------- TOP BAR ----------------
           Container(
             height: 100,
-            width: double.infinity,
             alignment: Alignment.center,
             color: const Color(0xFF0F52BA),
             child: const Text(
@@ -111,15 +129,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          // ================= MAIN CONTENT =================
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // PROFILE IMAGE UPLOAD FRAME
+                  // ---------------- PROFILE IMAGE ----------------
                   GestureDetector(
-                    onTap: isEditing ? pickProfileImage : null,
+                    onTap: pickProfileImage,
                     child: Container(
                       width: 150,
                       height: 150,
@@ -127,29 +144,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         shape: BoxShape.circle,
                         color: Colors.grey[300],
                       ),
-                      child: ClipOval(
-                        child: profileImage != null
-                            ? Image.file(profileImage!, fit: BoxFit.cover)
-                            : Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
-                                  Icon(Icons.upload, size: 32),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    "Upload Image",
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16),
-                                  )
-                                ],
-                              ),
-                      ),
+                      child: isUploading
+                          ? const Center(child: CircularProgressIndicator())
+                          : ClipOval(
+                              child: profileImageUrl != null
+                                  ? Image.network(profileImageUrl!,
+                                      fit: BoxFit.cover)
+                                  : Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: const [
+                                        Icon(Icons.upload, size: 32),
+                                        SizedBox(height: 4),
+                                        Text(
+                                          "Upload Image",
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16),
+                                        )
+                                      ],
+                                    ),
+                            ),
                     ),
                   ),
 
                   const SizedBox(height: 20),
 
-                  // CARD
+                  // ---------------- CARD ----------------
                   Material(
                     elevation: 6,
                     borderRadius: BorderRadius.circular(8),
@@ -157,13 +178,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(8),
                         color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // NAME + EDIT ICON
+                          // NAME + EDIT BUTTON
                           Row(
                             children: [
                               Expanded(
@@ -176,85 +197,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                               ),
                               IconButton(
-                                icon: Icon(isEditing ? Icons.check : Icons.edit, size: 24),
+                                icon: Icon(
+                                  isEditing ? Icons.check : Icons.edit,
+                                  size: 24,
+                                ),
                                 onPressed: () {
-                                  setState(() {
-                                    isEditing = !isEditing;
-                                  });
-                                  // Optional: auto-save when leaving edit mode
-                                  // if (!isEditing) saveProfile();
+                                  setState(() => isEditing = !isEditing);
                                 },
                               ),
                             ],
                           ),
 
+                          const SizedBox(height: 10),
 
-                          // BIRTHDAY
-                          const Text(
-                            "Birthday",
-                            style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 6),
+                          _section("Birthday"),
                           _chip(birthday ?? "Unknown"),
 
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 15),
 
-                          // PETS LIST
-                          const Text(
-                            "Pets",
-                            style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
+                          _section("Pets"),
                           Wrap(
-                            spacing: 10,
+                            spacing: 8,
                             children: petNames.map((p) => _chip(p)).toList(),
                           ),
 
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 15),
 
-                          // EMAIL
-                          const Text(
-                            "Email & Phone",
-                            style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 6),
-                          _input(emailController, "Email", enabled: isEditing),
+                          _section("Email"),
+                          _input(emailController, enabled: false),
 
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 15),
 
-                          // NOTIFICATIONS
-                          const Text(
-                            "Notifications",
-                            style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
-
-                          _switchRow(
-                            "Daily Tasks",
-                            notifDailyTasks,
-                                (v) => setState(() => notifDailyTasks = v),
-                            enabled: isEditing,
-                          ),
-                          _switchRow(
-                            "Health Updates",
-                            notifHealthUpdates,
-                                (v) => setState(() => notifHealthUpdates = v),
-                            enabled: isEditing,
-                          ),
+                          _section("Notifications"),
+                          _switchRow("Daily Tasks", notifDailyTasks,
+                              (v) => setState(() => notifDailyTasks = v),
+                              enabled: isEditing),
+                          _switchRow("Health Updates", notifHealthUpdates,
+                              (v) => setState(() => notifHealthUpdates = v),
+                              enabled: isEditing),
 
                           const SizedBox(height: 20),
 
-                          // NOTES
-                          const Text(
-                            "Notes",
-                            style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
-                          _input(notesController, "Type notes..."),
+                          _section("Notes"),
+                          _input(notesController,
+                              hint: "Type notes...", enabled: isEditing),
 
                           const SizedBox(height: 30),
+
                           SizedBox(
                             width: double.infinity,
                             height: 50,
@@ -262,9 +251,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               onPressed: saveProfile,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF0F52BA),
-                                foregroundColor: Colors.white,
                               ),
-                              child: const Text("Save Changes"),
+                              child: const Text(
+                                "Save Changes",
+                                style: TextStyle(color: Colors.white),
+                              ),
                             ),
                           ),
                         ],
@@ -274,107 +265,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-          ),
+          )
         ],
       ),
     );
   }
 
-// INPUT FIELD
-  Widget _input(
-      TextEditingController c,
-      String hint, {
-        bool enabled = true,   // <--- declare it here with a default
-      }) {
+  // ---------------- HELPERS ----------------
+  Widget _section(String title) => Text(
+        title,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+
+  Widget _input(TextEditingController c,
+      {String hint = "", bool enabled = true}) {
     return Container(
       height: 50,
-      margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12),
+      margin: const EdgeInsets.only(top: 6),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[400]!),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[400]!),
       ),
       child: TextField(
         controller: c,
         enabled: enabled,
-        readOnly: !enabled,
         decoration: InputDecoration(
-          border: InputBorder.none,
           hintText: hint,
+          border: InputBorder.none,
         ),
       ),
     );
   }
 
+  Widget _chip(String text) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFE6E6E6),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(text),
+      );
 
-  // CHIP
-  Widget _chip(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE6E6E6),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(text),
-    );
-  }
-
-  // SWITCH ROW
-  Widget _switchRow(
-      String label,
-      bool value,
-      Function(bool) onChanged, {
-        bool enabled = true,
-      }) {
+  Widget _switchRow(String label, bool value, Function(bool) onChanged,
+      {bool enabled = true}) {
     return Row(
       children: [
         Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          child: Text(label,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
         ),
         Switch(
           value: value,
-          onChanged: enabled ? onChanged : null, // disable when not editing
-        ),
-      ],
-    );
-  }
-
-
-  // BOTTOM NAV
-  Widget _bottomNav() {
-    return Container(
-      height: 95,
-      color: const Color(0xFF0F52BA),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _navItem(Icons.home, "Home"),
-          _navItem(Icons.calendar_today, "Calendar"),
-          _navItem(Icons.pets, "Pets"),
-          _navItem(Icons.settings, "Settings", active: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _navItem(IconData icon, String label, {bool active = false}) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon,
-            size: 30, color: active ? const Color(0xFFFF8A65) : Colors.white),
-        Text(
-          label,
-          style: TextStyle(
-            color: active ? const Color(0xFFFF8A65) : Colors.white,
-            fontSize: 14,
-          ),
+          onChanged: enabled ? onChanged : null,
         ),
       ],
     );
